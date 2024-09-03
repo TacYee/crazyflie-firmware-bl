@@ -37,7 +37,7 @@
 #include "debug.h"
 #include "static_mem.h"
 
-#include "autoconf.h"
+#include "autoconf.h" 
 
 #ifdef CONFIG_DEBUG
   #define DECK_INFO_DBG_PRINT(fmt, ...)  DEBUG_PRINT(fmt, ## __VA_ARGS__)
@@ -220,6 +220,37 @@ static void enumerateDecks(void)
   nDecks = 0;
 #endif
 
+
+  // Add build-forced driver
+  if (strlen(deck_force) > 0 && strncmp(deck_force, "none", 4) != 0) {
+    DEBUG_PRINT("CONFIG_DECK_FORCE=%s found\n", deck_force);
+  	//split deck_force into multiple, separated by colons, if available
+    char delim[] = ":";
+
+    char temp_deck_force[strlen(deck_force) + 1];
+    strcpy(temp_deck_force, deck_force);
+    char * token = strtok(temp_deck_force, delim);
+
+    while (token) {
+      deck_force = token;
+
+      const DeckDriver *driver = deckFindDriverByName(deck_force);
+      if (!driver) {
+        DEBUG_PRINT("WARNING: compile-time forced driver %s not found\n", deck_force);
+      } else if (driver->init || driver->test) {
+        if (nDecks <= DECK_MAX_COUNT)
+        {
+          nDecks++;
+          deckInfos[nDecks - 1].driver = driver;
+          DEBUG_PRINT("compile-time forced driver %s added\n", deck_force);
+        } else {
+          DEBUG_PRINT("WARNING: No room for compile-time forced driver\n");
+        }
+      }
+      token = strtok(NULL, delim);
+    }
+  }
+
   // Add build-forced driver
   if (strlen(deck_force1) > 0 && strncmp(deck_force1, "none", 4) != 0) {
     DEBUG_PRINT("CONFIG_DECK_FORCE1=%s found\n", deck_force1);
@@ -249,7 +280,6 @@ static void enumerateDecks(void)
       token = strtok(NULL, delim);
     }
   }
-
 
   if (noError) {
     count = nDecks;
