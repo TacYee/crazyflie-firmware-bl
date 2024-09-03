@@ -11,6 +11,8 @@ branch off from the 2017.06 tag.
 ## Building and Flashing
 See the [building and flashing instructions](https://github.com/bitcraze/crazyflie-firmware/blob/master/docs/building-and-flashing/build.md) in the github docs folder.
 
+add #define CONFIG_DECK_FORCE1 "Whisker1" to autoconf.h
+
 
 ## Official Documentation
 
