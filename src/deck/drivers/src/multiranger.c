@@ -120,27 +120,29 @@ static void mrTask(void *param)
 
     // Restart all sensors
     status = VL53L1_StopMeasurement(&devFront);
+    VL53L1_SetDistanceMode(&devFront, VL53L1_DISTANCEMODE_SHORT);
+    VL53L1_SetMeasurementTimingBudgetMicroSeconds(&devFront, 40000);
     status = VL53L1_StartMeasurement(&devFront);
-    status = VL53L1_StopMeasurement(&devBack);
-    status = VL53L1_StartMeasurement(&devBack);
-    status = VL53L1_StopMeasurement(&devUp);
-    status = VL53L1_StartMeasurement(&devUp);
-    status = VL53L1_StopMeasurement(&devLeft);
-    status = VL53L1_StartMeasurement(&devLeft);
-    status = VL53L1_StopMeasurement(&devRight);
-    status = VL53L1_StartMeasurement(&devRight);
+    // status = VL53L1_StopMeasurement(&devBack);
+    // status = VL53L1_StartMeasurement(&devBack);
+    // status = VL53L1_StopMeasurement(&devUp);
+    // status = VL53L1_StartMeasurement(&devUp);
+    // status = VL53L1_StopMeasurement(&devLeft);
+    // status = VL53L1_StartMeasurement(&devLeft);
+    // status = VL53L1_StopMeasurement(&devRight);
+    // status = VL53L1_StartMeasurement(&devRight);
     status = status;
 
     TickType_t lastWakeTime = xTaskGetTickCount();
 
     while (1)
     {
-        vTaskDelayUntil(&lastWakeTime, M2T(100));
+        vTaskDelayUntil(&lastWakeTime, M2T(40));
         rangeSet(rangeFront, mrGetMeasurementAndRestart(&devFront) / 1000.0f);
-        rangeSet(rangeBack, mrGetMeasurementAndRestart(&devBack) / 1000.0f);
-        rangeSet(rangeUp, mrGetMeasurementAndRestart(&devUp) / 1000.0f);
-        rangeSet(rangeLeft, mrGetMeasurementAndRestart(&devLeft) / 1000.0f);
-        rangeSet(rangeRight, mrGetMeasurementAndRestart(&devRight) / 1000.0f);
+        // rangeSet(rangeBack, mrGetMeasurementAndRestart(&devBack) / 1000.0f);
+        // rangeSet(rangeUp, mrGetMeasurementAndRestart(&devUp) / 1000.0f);
+        // rangeSet(rangeLeft, mrGetMeasurementAndRestart(&devLeft) / 1000.0f);
+        // rangeSet(rangeRight, mrGetMeasurementAndRestart(&devRight) / 1000.0f);
     }
 }
 
