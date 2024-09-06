@@ -91,11 +91,14 @@ void appMain()
 
   vTaskDelay(M2T(3000));
 
+  logVarId_t idwhisker1_1 = logGetVarId("Whisker", "Barometer1_1");
+  logVarId_t idwhisker1_2 = logGetVarId("Whisker", "Barometer1_2");
+  logVarId_t idwhisker1_3 = logGetVarId("Whisker", "Barometer1_3");
+  logVarId_t idwhisker2_1 = logGetVarId("Whisker1", "Barometer2_1");
+  logVarId_t idwhisker2_2 = logGetVarId("Whisker1", "Barometer2_2");
+  logVarId_t idwhisker2_3 = logGetVarId("Whisker1", "Barometer2_3");
   logVarId_t idUp = logGetVarId("range", "up");
-  logVarId_t idLeft = logGetVarId("range", "left");
-  logVarId_t idRight = logGetVarId("range", "right");
   logVarId_t idFront = logGetVarId("range", "front");
-  logVarId_t idBack = logGetVarId("range", "back");
   
   paramVarId_t idPositioningDeck = paramGetVarId("deck", "bcFlow2");
   paramVarId_t idMultiranger = paramGetVarId("deck", "bcMultiranger");
@@ -108,7 +111,7 @@ void appMain()
   DEBUG_PRINT("Waiting for activation ...\n");
 
   while(1) {
-    vTaskDelay(M2T(10));
+    vTaskDelay(M2T(20));
     //DEBUG_PRINT(".");
 
     uint8_t positioningInit = paramGetUint(idPositioningDeck);
@@ -117,10 +120,12 @@ void appMain()
     uint16_t up = logGetUint(idUp);
 
     if (state == unlocked) {
-      uint16_t left = logGetUint(idLeft);
-      uint16_t right = logGetUint(idRight);
-      uint16_t front = logGetUint(idFront);
-      uint16_t back = logGetUint(idBack);
+      float whisker1_1 = logGetUint(idwhisker1_1);
+      float whisker1_2 = logGetUint(idwhisker1_2);
+      float whisker1_3 = logGetUint(idwhisker1_3);
+      float whisker2_1 = logGetUint(idwhisker2_1);
+      float whisker2_2 = logGetUint(idwhisker2_2);
+      float whisker2_3 = logGetUint(idwhisker2_3);
 
       uint16_t left_o = radius - MIN(left, radius);
       uint16_t right_o = radius - MIN(right, radius);
