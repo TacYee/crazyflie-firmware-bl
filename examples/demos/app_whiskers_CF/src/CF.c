@@ -41,8 +41,12 @@
 
 #include "log.h"
 #include "param.h"
+#include <math.h>
+#include "usec_time.h"
 
-#define DEBUG_MODULE "PUSH"
+#include "CF_whiskers_onboard.h"
+
+#define DEBUG_MODULE "CF"
 
 static void setHoverSetpoint(setpoint_t *setpoint, float vx, float vy, float z, float yawrate)
 {
@@ -62,51 +66,56 @@ static void setHoverSetpoint(setpoint_t *setpoint, float vx, float vy, float z, 
   setpoint->velocity_body = true;
 }
 
-typedef enum {
-    idle,
-    lowUnlock,
-    unlocked,
-    stopping
-} State;
 
-static State state = idle;
+// States
+typedef enum
+{
+  idle,
+  lowUnlock,
+  unlocked,
+  stopping
+} StateOuterLoop;
 
-static const uint16_t unlockThLow = 100;
-static const uint16_t unlockThHigh = 300;
-static const uint16_t stoppedTh = 500;
+StateOuterLoop stateOuterLoop = idle;
+StateCF stateInnerLoop = hover;
 
-static const float velMax = 1.0f;
-static const uint16_t radius = 300;
-static const uint16_t radius_up_down = 100;
-static const float up_down_delta = 0.002f;
+// Some wallfollowing parameters and logging
+float MIN_THRESHOLD1 = 20.0f;
+float MAX_THRESHOLD1 = 100.0f;
+float MIN_THRESHOLD2 = 20.0f;
+float MAX_THRESHOLD2 = 100.0f;
+float maxSpeed = 0.2f;
+float maxTurnRate = 25.0f;
 
-static float height_sp = 0.2f;
+float cmdVelX = 0.0f;
+float cmdVelY = 0.0f;
+float cmdAngWRad = 0.0f;
+float cmdAngWDeg = 0.0f;
 
 #define MAX(a,b) ((a>b)?a:b)
 #define MIN(a,b) ((a<b)?a:b)
 
 void appMain()
 {
-  static setpoint_t setpoint;
 
   vTaskDelay(M2T(3000));
-
+  // Getting Logging IDs of the whiskers
   logVarId_t idwhisker1_1 = logGetVarId("Whisker", "Barometer1_1");
   logVarId_t idwhisker1_2 = logGetVarId("Whisker", "Barometer1_2");
   logVarId_t idwhisker1_3 = logGetVarId("Whisker", "Barometer1_3");
   logVarId_t idwhisker2_1 = logGetVarId("Whisker1", "Barometer2_1");
   logVarId_t idwhisker2_2 = logGetVarId("Whisker1", "Barometer2_2");
   logVarId_t idwhisker2_3 = logGetVarId("Whisker1", "Barometer2_3");
-  logVarId_t idUp = logGetVarId("range", "up");
   logVarId_t idFront = logGetVarId("range", "front");
   
   paramVarId_t idPositioningDeck = paramGetVarId("deck", "bcFlow2");
   paramVarId_t idMultiranger = paramGetVarId("deck", "bcMultiranger");
 
+  // Initialize the wall follower state machine
+  FSMInit(MIN_THRESHOLD1, MAX_THRESHOLD1, MIN_THRESHOLD2, MAX_THRESHOLD2, maxSpeed, maxTurnRate, stateInnerLoop);
 
-  float factor = velMax/radius;
-
-  //DEBUG_PRINT("%i", idUp);
+  // Intialize the setpoint structure
+  setpoint_t setpoint;
 
   DEBUG_PRINT("Waiting for activation ...\n");
 
@@ -117,9 +126,13 @@ void appMain()
     uint8_t positioningInit = paramGetUint(idPositioningDeck);
     uint8_t multirangerInit = paramGetUint(idMultiranger);
 
-    uint16_t up = logGetUint(idUp);
+    if (stateOuterLoop == unlocked) {
 
-    if (state == unlocked) {
+      float cmdHeight = 0.3f;
+      cmdVelX = 0.0f;
+      cmdVelY = 0.0f;
+      cmdAngWDeg = 0.0f;
+
       float whisker1_1 = logGetUint(idwhisker1_1);
       float whisker1_2 = logGetUint(idwhisker1_2);
       float whisker1_3 = logGetUint(idwhisker1_3);
@@ -127,70 +140,15 @@ void appMain()
       float whisker2_2 = logGetUint(idwhisker2_2);
       float whisker2_3 = logGetUint(idwhisker2_3);
 
-      uint16_t left_o = radius - MIN(left, radius);
-      uint16_t right_o = radius - MIN(right, radius);
-      float l_comp = (-1) * left_o * factor;
-      float r_comp = right_o * factor;
-      float velSide = r_comp + l_comp;
-
-      uint16_t front_o = radius - MIN(front, radius);
-      uint16_t back_o = radius - MIN(back, radius);
-      float f_comp = (-1) * front_o * factor;
-      float b_comp = back_o * factor;
-      float velFront = b_comp + f_comp;
-
-      // we want to go up when there are obstacles (hands) closer than radius_up_down on both sides
-      if(left < radius_up_down && right < radius_up_down)
-      {
-        height_sp += up_down_delta;
-      }
-
-      // we want to go down when there are obstacles (hands) closer than radius_up_down in front and back (or there is something on top)
-      if((front < radius_up_down && back < radius_up_down) || up < radius)
-      {
-        height_sp -= up_down_delta;
-      }
-
-      uint16_t up_o = radius - MIN(up, radius);
-      float height = height_sp - up_o/1000.0f;
-
-
-      /*DEBUG_PRINT("l=%i, r=%i, lo=%f, ro=%f, vel=%f\n", left_o, right_o, l_comp, r_comp, velSide);
-      DEBUG_PRINT("f=%i, b=%i, fo=%f, bo=%f, vel=%f\n", front_o, back_o, f_comp, b_comp, velFront);
-      DEBUG_PRINT("u=%i, d=%i, height=%f\n", up_o, height);*/
+      // The wall-following state machine which outputs velocity commands
+      float timeNow = usecTimestamp() / 1e6;
+      stateInnerLoop = FSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker2_1, timeNow);
 
       if (1) {
-        setHoverSetpoint(&setpoint, velFront, velSide, height, 0);
+        setHoverSetpoint(&setpoint, cmdVelX, cmdVelY, cmdHeight, cmdAngWDeg);
         commanderSetSetpoint(&setpoint, 3);
       }
 
-      if (height < 0.1f) {
-        state = stopping;
-        DEBUG_PRINT("X\n");
-      }
-
-    } else {
-
-      if (state == stopping && up > stoppedTh) {
-        DEBUG_PRINT("%i", up);
-        state = idle;
-        DEBUG_PRINT("S\n");
-      }
-
-      if (up < unlockThLow && state == idle && up > 0.001f) {
-        DEBUG_PRINT("Waiting for hand to be removed!\n");
-        state = lowUnlock;
-      }
-
-      if (up > unlockThHigh && state == lowUnlock && positioningInit && multirangerInit) {
-        DEBUG_PRINT("Unlocked!\n");
-        state = unlocked;
-      }
-
-      if (state == idle || state == stopping) {
-        memset(&setpoint, 0, sizeof(setpoint_t));
-        commanderSetSetpoint(&setpoint, 3);
-      }
     }
   }
 }
