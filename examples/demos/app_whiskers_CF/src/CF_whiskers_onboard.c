@@ -141,6 +141,8 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1, floa
       cmdVelYTemp = 0.0f;
       cmdAngWTemp = -1.0f * maxTurnRate;
     }
+
+    //fly backward
     else
     {
       cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
