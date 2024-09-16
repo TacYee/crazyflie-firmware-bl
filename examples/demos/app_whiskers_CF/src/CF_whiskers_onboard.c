@@ -88,6 +88,7 @@ void apply_bandpass_filter(float data, float *zi, float *filtered_data, float *b
 }
 
 
+
 void process_data(Whisker *whisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) {
     float residuals[6];
     residuals[0] = whisker1_1 - (whisker->slopes[0] * whisker->time_stamp + whisker->intercepts[0]);
