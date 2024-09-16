@@ -43,7 +43,7 @@ static float stateStartTime;
 static StateCF stateCF = hover;
 float timeNow = 0.0f;
 
-void WhiskerInit(Whisker *whisker) {
+void ProcessWhiskerInit(Whisker *whisker) {
     for (int i = 0; i < 6; i++) {
         whisker->zi[i][0] = 0.0f;  // Initialize filter state
         whisker->zi[i][1] = 0.0f;
@@ -104,11 +104,9 @@ void process_data(Whisker *whisker, float whisker1_1, float whisker1_2, float wh
     apply_bandpass_filter(residuals[3], whisker->zi[3], &whisker->whisker2_1, whisker->b, whisker->a);
     apply_bandpass_filter(residuals[4], whisker->zi[4], &whisker->whisker2_2, whisker->b, whisker->a);
     apply_bandpass_filter(residuals[5], whisker->zi[5], &whisker->whisker2_3, whisker->b, whisker->a);
-    
-    whisker->count++;  // Increment time stamp
 }
 
-void data_received(Whisker *whisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) {
+void ProcessDataReceived(Whisker *whisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) {
     if (whisker->count < DATA_SIZE) {
         update_statistics(whisker, whisker1_1, 0);
         update_statistics(whisker, whisker1_2, 1);
@@ -147,123 +145,111 @@ static StateCF transition(StateCF newState)
   return newState;
 }
 
-StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1, float whisker2, float timeOuter)
+StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
+            float whisker2_1, float whisker2_2, float whisker2_3, Whisker *whisker, float timeOuter)
 {
+    timeNow = timeOuter;
 
-  timeNow = timeOuter;
-
-  if (firstRun)
-  {
-    firstRun = false;
-    StartTime = timeNow;
-  }
-
-  /***********************************************************
-  * Handle state transitions
-  ***********************************************************/
-  switch (stateCF)
-  {
-  
-  case hover:
-    if (timeNow - StartTime >= waitForStartSeconds)
+    if (firstRun)
     {
-      stateCF = transition(forward);
-    }
-    
-  case forward:
-    if (whisker1 > MIN_THRESHOLD1 || whisker2 > MIN_THRESHOLD2)
-    {
-      stateCF = transition(CF);
-    }
-    break;
-
-  case CF:
-    if (whisker1 < MIN_THRESHOLD1 && whisker2 < MIN_THRESHOLD2)
-    {
-      stateCF = transition(forward);
-    }
-    break;
-
-  /***********************************************************
-   * Handle state actions
-   ***********************************************************/
-
-  float cmdVelXTemp = 0.0f;
-  float cmdVelYTemp = 0.0f;
-  float cmdAngWTemp = 0.0f;
-
-  switch (stateCF)
-  {
-  case hover:
-    cmdVelXTemp = 0.0f;
-    cmdVelYTemp = 0.0f;
-    cmdAngWTemp = 0.0f;
-    break;
-
-  case forward:
-    cmdVelXTemp = maxSpeed;
-    cmdVelYTemp = 0.0f;
-    cmdAngWTemp = 0.0f;
-    break;
-
-  case CF:
-    //fly side way
-    if (MAX_THRESHOLD1 > whisker1 && whisker1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > whisker2 && whisker2 > MIN_THRESHOLD2)
-    {
-      cmdVelXTemp = 0.0f;
-      cmdVelYTemp = -1.0f * maxSpeed;
-      cmdAngWTemp = 0.0f;
+        firstRun = false;
+        StartTime = timeNow;
     }
 
-    //turn left
-    else if (MAX_THRESHOLD1 > whisker1 && whisker1 > MIN_THRESHOLD1 && whisker2 < MIN_THRESHOLD2)
+    // Handle state transitions
+    switch (stateCF)
     {
-      cmdVelXTemp = 0.0f;
-      cmdVelYTemp = 0.0f;
-      cmdAngWTemp = maxTurnRate;
+    case hover:
+        if (timeNow - StartTime >= waitForStartSeconds)
+        {
+            stateCF = transition(forward);
+        }
+        break;
+
+    case forward:
+        data_received(whisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        if (whisker->whisker1_1 > MIN_THRESHOLD1 || whisker->whisker2_1 > MIN_THRESHOLD2)
+        {
+            stateCF = transition(CF);
+        }
+        break;
+
+    case CF:
+        data_received(whisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        if (whisker->whisker1_1 < MIN_THRESHOLD1 && whisker->whisker2_1 < MIN_THRESHOLD2)
+        {
+            stateCF = transition(forward);
+        }
+        break;
     }
 
-    else if (whisker1 > MAX_THRESHOLD1 && MAX_THRESHOLD2 > whisker2 && whisker2 > MIN_THRESHOLD2)
+    // Handle state actions
+    float cmdVelXTemp = 0.0f;
+    float cmdVelYTemp = 0.0f;
+    float cmdAngWTemp = 0.0f;
+
+    switch (stateCF)
     {
-      cmdVelXTemp = 0.0f;
-      cmdVelYTemp = 0.0f;
-      cmdAngWTemp = maxTurnRate;
+    case hover:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+
+    case forward:
+        cmdVelXTemp = maxSpeed;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+
+    case CF:
+        if (MAX_THRESHOLD1 > whisker1_1 && whisker1_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > whisker2_1 && whisker2_1 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = -1.0f * maxSpeed;
+            cmdAngWTemp = 0.0f;
+        }
+        else if (MAX_THRESHOLD1 > whisker1_1 && whisker1_1 > MIN_THRESHOLD1 && whisker2_1 < MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = maxTurnRate;
+        }
+        else if (whisker1_1 > MAX_THRESHOLD1 && MAX_THRESHOLD2 > whisker2_1 && whisker2_1 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = maxTurnRate;
+        }
+        else if (MAX_THRESHOLD1 > whisker1_1 && whisker1_1 > MIN_THRESHOLD1 && whisker2_1 > MAX_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = -1.0f * maxTurnRate;
+        }
+        else if (whisker1_1 < MIN_THRESHOLD1 && MAX_THRESHOLD2 > whisker2_1 && whisker2_1 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = -1.0f * maxTurnRate;
+        }
+        else
+        {
+            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = 0.0f;
+        }
+        break;
+
+    default:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
     }
-    
-    //turn right
-    else if (MAX_THRESHOLD1 > whisker1 && whisker1 > MIN_THRESHOLD1 && whisker2 > MAX_THRESHOLD2)
-    {
-      cmdVelXTemp = 0.0f;
-      cmdVelYTemp = 0.0f;
-      cmdAngWTemp = -1.0f * maxTurnRate;
-    }
 
-    else if (whisker1 < MIN_THRESHOLD1 && MAX_THRESHOLD2 > whisker2 && whisker2 > MIN_THRESHOLD2)
-    {
-      cmdVelXTemp = 0.0f;
-      cmdVelYTemp = 0.0f;
-      cmdAngWTemp = -1.0f * maxTurnRate;
-    }
+    *cmdVelX = cmdVelXTemp;
+    *cmdVelY = cmdVelYTemp;
+    *cmdAngW = cmdAngWTemp;
 
-    //fly backward
-    else
-    {
-      cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
-      cmdVelYTemp = 0.0f;
-      cmdAngWTemp = 0.0f;      
-    }
-    break;
-
-  default:
-    //State does not exist so hover!!
-    cmdVelXTemp = 0.0f;
-    cmdVelYTemp = 0.0f;
-    cmdAngWTemp = 0.0f;
-  }
-
-  *cmdVelX = cmdVelXTemp;
-  *cmdVelY = cmdVelYTemp;
-  *cmdAngW = cmdAngWTemp;
-
-  return stateCF;
+    return stateCF;
 }

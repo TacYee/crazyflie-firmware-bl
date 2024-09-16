@@ -78,6 +78,7 @@ typedef enum
 
 StateOuterLoop stateOuterLoop = idle;
 StateCF stateInnerLoop = hover;
+StateWhisker statewhisker;
 
 // Some wallfollowing parameters and logging
 float MIN_THRESHOLD1 = 20.0f;
@@ -97,7 +98,6 @@ float cmdAngWDeg = 0.0f;
 
 void appMain()
 {
-
   vTaskDelay(M2T(3000));
   // Getting Logging IDs of the whiskers
   logVarId_t idwhisker1_1 = logGetVarId("Whisker", "Barometer1_1");
@@ -122,7 +122,7 @@ void appMain()
   while(1) {
     vTaskDelay(M2T(20));
     //DEBUG_PRINT(".");
-
+    ProcessWhiskerInit(statewhisker);
     uint8_t positioningInit = paramGetUint(idPositioningDeck);
     uint8_t multirangerInit = paramGetUint(idMultiranger);
 
@@ -142,7 +142,8 @@ void appMain()
 
       // The wall-following state machine which outputs velocity commands
       float timeNow = usecTimestamp() / 1e6;
-      stateInnerLoop = FSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker2_1, timeNow);
+      stateInnerLoop = FSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
+                          whisker2_1, whisker2_2, whisker2_3, statewhisker, timeNow);
 
       if (1) {
         setHoverSetpoint(&setpoint, cmdVelX, cmdVelY, cmdHeight, cmdAngWDeg);
