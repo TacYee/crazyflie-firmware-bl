@@ -33,27 +33,27 @@ typedef struct{
 } StateWhisker;
 
 StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
-            float whisker2_1, float whisker2_2, float whisker2_3, Whisker *whisker, float timeOuter);
+            float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter);
 
 
 void FSMInit(float MIN_THRESHOLD1_input, float MAX_THRESHOLD1_input, 
              float MIN_THRESHOLD2_input, float MAX_THRESHOLD2_input, 
              float maxSpeed_input, float maxTurnRate_input, StateCF initState);
 
-void ProcessWhiskerInit(Whisker *whisker) {
+void ProcessWhiskerInit(StateWhisker *statewhisker) {
     for (int i = 0; i < 6; i++) {
-        whisker->zi[i][0] = 0.0f;  // Initialize filter state
-        whisker->zi[i][1] = 0.0f;
+        statewhisker->zi[i][0] = 0.0f;  // Initialize filter state
+        statewhisker->zi[i][1] = 0.0f;
     }
     
-    whisker->count = 0;
+    statewhisker->count = 0;
     
     // 1st order butterworth filter 0.05-1hz
-    whisker->b[0] = 0.05639124;
-    whisker->b[1] = 0.0f;
-    whisker->b[2] = -0.05639124;
-    whisker->a[0] = 1.0f;
-    whisker->a[1] = -1.88647164;
-    whisker->a[2] = 0.88721752;
+    statewhisker->b[0] = 0.05639124;
+    statewhisker->b[1] = 0.0f;
+    statewhisker->b[2] = -0.05639124;
+    statewhisker->a[0] = 1.0f;
+    statewhisker->a[1] = -1.88647164;
+    statewhisker->a[2] = 0.88721752;
 };
 #endif /* SRC_CF_WHISKERS_ONBOARD_H_ */

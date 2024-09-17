@@ -67,16 +67,7 @@ static void setHoverSetpoint(setpoint_t *setpoint, float vx, float vy, float z, 
 }
 
 
-// States
-typedef enum
-{
-  idle,
-  lowUnlock,
-  unlocked,
-  stopping
-} StateOuterLoop;
-
-StateOuterLoop stateOuterLoop = idle;
+static int stateOuterLoop = 0;
 StateCF stateInnerLoop = hover;
 StateWhisker statewhisker;
 
@@ -90,11 +81,9 @@ float maxTurnRate = 25.0f;
 
 float cmdVelX = 0.0f;
 float cmdVelY = 0.0f;
-float cmdAngWRad = 0.0f;
+float cmdHeight = 0.0f;
 float cmdAngWDeg = 0.0f;
 
-#define MAX(a,b) ((a>b)?a:b)
-#define MIN(a,b) ((a<b)?a:b)
 
 void appMain()
 {
@@ -122,13 +111,13 @@ void appMain()
   while(1) {
     vTaskDelay(M2T(20));
     //DEBUG_PRINT(".");
-    ProcessWhiskerInit(statewhisker);
+    ProcessWhiskerInit(&statewhisker);
     uint8_t positioningInit = paramGetUint(idPositioningDeck);
     uint8_t multirangerInit = paramGetUint(idMultiranger);
 
-    if (stateOuterLoop == unlocked) {
+    if (stateOuterLoop == 1) {
 
-      float cmdHeight = 0.3f;
+      cmdHeight = 0.3f;
       cmdVelX = 0.0f;
       cmdVelY = 0.0f;
       cmdAngWDeg = 0.0f;
@@ -143,13 +132,33 @@ void appMain()
       // The wall-following state machine which outputs velocity commands
       float timeNow = usecTimestamp() / 1e6;
       stateInnerLoop = FSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
-                          whisker2_1, whisker2_2, whisker2_3, statewhisker, timeNow);
+                          whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
 
       if (1) {
         setHoverSetpoint(&setpoint, cmdVelX, cmdVelY, cmdHeight, cmdAngWDeg);
         commanderSetSetpoint(&setpoint, 3);
       }
 
+    if (stateOuterLoop == 2)
+      {
+        memset(&setpoint, 0, sizeof(setpoint_t));
+        commanderSetSetpoint(&setpoint, 3);
+      }
     }
   }
 }
+
+PARAM_GROUP_START(app)
+PARAM_ADD(PARAM_UINT8, stateOuterLoop, &stateOuterLoop)
+PARAM_GROUP_STOP(app)
+
+LOG_GROUP_START(app)
+LOG_ADD(LOG_FLOAT, PreprocessWhisker1_1, &statewhisker.whisker1_1)
+LOG_ADD(LOG_FLOAT, PreprocessWhisker1_2, &statewhisker.whisker1_2)
+LOG_ADD(LOG_FLOAT, PreprocessWhisker1_3, &statewhisker.whisker1_3)
+LOG_ADD(LOG_FLOAT, PreprocessWhisker2_1, &statewhisker.whisker2_1)
+LOG_ADD(LOG_FLOAT, PreprocessWhisker2_2, &statewhisker.whisker2_2)
+LOG_ADD(LOG_FLOAT, PreprocessWhisker2_3, &statewhisker.whisker2_3)
+LOG_ADD(LOG_UINT8, stateInnerLoop, &stateInnerLoop)
+LOG_ADD(LOG_UINT8, stateOuterLoop, &stateOuterLoop)
+LOG_GROUP_STOP(app)

@@ -12,22 +12,6 @@
 
 #define DATA_SIZE 100
 
-typedef struct Whisker {
-    float whisker1_1, whisker1_2, whisker1_3;
-    float whisker2_1, whisker2_2, whisker2_3;
-    float sum_x[6];
-    float sum_y[6];
-    float sum_x_squared[6];
-    float sum_xy[6];
-    float slopes[6];
-    float intercepts[6];
-    int count;
-    float zi[6][2];
-    float time_stamp;
-    float b[3], a[3];  // Filter coefficients (3-tap filter example)
-} Whisker;
-
-
 static float firstRun = false;
 static float TurnRate = 0.5f;
 static float maxSpeed = 0.2f;
@@ -43,38 +27,38 @@ static float stateStartTime;
 static StateCF stateCF = hover;
 float timeNow = 0.0f;
 
-void ProcessWhiskerInit(Whisker *whisker) {
+void ProcessWhiskerInit(StateWhisker *statewhisker) {
     for (int i = 0; i < 6; i++) {
-        whisker->zi[i][0] = 0.0f;  // Initialize filter state
-        whisker->zi[i][1] = 0.0f;
+        statewhisker->zi[i][0] = 0.0f;  // Initialize filter state
+        statewhisker->zi[i][1] = 0.0f;
     }
     
-    whisker->count = 0;
+    statewhisker->count = 0;
     
     // 1st order butterworth filter 0.05-1hz
-    whisker->b[0] = 0.05639124;
-    whisker->b[1] = 0.0f;
-    whisker->b[2] = -0.05639124;
-    whisker->a[0] = 1.0f;
-    whisker->a[1] = -1.88647164;
-    whisker->a[2] = 0.88721752;
+    statewhisker->b[0] = 0.05639124;
+    statewhisker->b[1] = 0.0f;
+    statewhisker->b[2] = -0.05639124;
+    statewhisker->a[0] = 1.0f;
+    statewhisker->a[1] = -1.88647164;
+    statewhisker->a[2] = 0.88721752;
 }
 
-void update_statistics(Whisker *whisker, float data, int index) {
-    float x = (float)whisker->count;
-    whisker->sum_x[index] += x;
-    whisker->sum_y[index] += data;
-    whisker->sum_x_squared[index] += x * x;
-    whisker->sum_xy[index] += x * data;
+void update_statistics(StateWhisker *statewhisker, float data, int index) {
+    float x = (float)statewhisker->count;
+    statewhisker->sum_x[index] += x;
+    statewhisker->sum_y[index] += data;
+    statewhisker->sum_x_squared[index] += x * x;
+    statewhisker->sum_xy[index] += x * data;
 }
 
 
-void calculate_parameters(Whisker *whisker) {
+void calculate_parameters(StateWhisker *statewhisker) {
     int n = DATA_SIZE;
     for (int i = 0; i < 6; i++) {
-        whisker->slopes[i] = (n * whisker->sum_xy[i] - whisker->sum_x[i] * whisker->sum_y[i]) /
-                             (n * whisker->sum_x_squared[i] - whisker->sum_x[i] * whisker->sum_x[i]);
-        whisker->intercepts[i] = (whisker->sum_y[i] - whisker->slopes[i] * whisker->sum_x[i]) / n;
+        statewhisker->slopes[i] = (n * statewhisker->sum_xy[i] - statewhisker->sum_x[i] * statewhisker->sum_y[i]) /
+                             (n * statewhisker->sum_x_squared[i] - statewhisker->sum_x[i] * statewhisker->sum_x[i]);
+        statewhisker->intercepts[i] = (statewhisker->sum_y[i] - statewhisker->slopes[i] * statewhisker->sum_x[i]) / n;
     }
 }
 
@@ -89,39 +73,39 @@ void apply_bandpass_filter(float data, float *zi, float *filtered_data, float *b
 
 
 
-void process_data(Whisker *whisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) {
+void process_data(StateWhisker *statewhisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) {
     float residuals[6];
-    residuals[0] = whisker1_1 - (whisker->slopes[0] * whisker->time_stamp + whisker->intercepts[0]);
-    residuals[1] = whisker1_2 - (whisker->slopes[1] * whisker->time_stamp + whisker->intercepts[1]);
-    residuals[2] = whisker1_3 - (whisker->slopes[2] * whisker->time_stamp + whisker->intercepts[2]);
-    residuals[3] = whisker2_1 - (whisker->slopes[3] * whisker->time_stamp + whisker->intercepts[3]);
-    residuals[4] = whisker2_2 - (whisker->slopes[4] * whisker->time_stamp + whisker->intercepts[4]);
-    residuals[5] = whisker2_3 - (whisker->slopes[5] * whisker->time_stamp + whisker->intercepts[5]);
+    residuals[0] = whisker1_1 - (statewhisker->slopes[0] * statewhisker->time_stamp + statewhisker->intercepts[0]);
+    residuals[1] = whisker1_2 - (statewhisker->slopes[1] * statewhisker->time_stamp + statewhisker->intercepts[1]);
+    residuals[2] = whisker1_3 - (statewhisker->slopes[2] * statewhisker->time_stamp + statewhisker->intercepts[2]);
+    residuals[3] = whisker2_1 - (statewhisker->slopes[3] * statewhisker->time_stamp + statewhisker->intercepts[3]);
+    residuals[4] = whisker2_2 - (statewhisker->slopes[4] * statewhisker->time_stamp + statewhisker->intercepts[4]);
+    residuals[5] = whisker2_3 - (statewhisker->slopes[5] * statewhisker->time_stamp + statewhisker->intercepts[5]);
 
-    apply_bandpass_filter(residuals[0], whisker->zi[0], &whisker->whisker1_1, whisker->b, whisker->a);
-    apply_bandpass_filter(residuals[1], whisker->zi[1], &whisker->whisker1_2, whisker->b, whisker->a);
-    apply_bandpass_filter(residuals[2], whisker->zi[2], &whisker->whisker1_3, whisker->b, whisker->a);
-    apply_bandpass_filter(residuals[3], whisker->zi[3], &whisker->whisker2_1, whisker->b, whisker->a);
-    apply_bandpass_filter(residuals[4], whisker->zi[4], &whisker->whisker2_2, whisker->b, whisker->a);
-    apply_bandpass_filter(residuals[5], whisker->zi[5], &whisker->whisker2_3, whisker->b, whisker->a);
+    apply_bandpass_filter(residuals[0], statewhisker->zi[0], &statewhisker->whisker1_1, statewhisker->b, statewhisker->a);
+    apply_bandpass_filter(residuals[1], statewhisker->zi[1], &statewhisker->whisker1_2, statewhisker->b, statewhisker->a);
+    apply_bandpass_filter(residuals[2], statewhisker->zi[2], &statewhisker->whisker1_3, statewhisker->b, statewhisker->a);
+    apply_bandpass_filter(residuals[3], statewhisker->zi[3], &statewhisker->whisker2_1, statewhisker->b, statewhisker->a);
+    apply_bandpass_filter(residuals[4], statewhisker->zi[4], &statewhisker->whisker2_2, statewhisker->b, statewhisker->a);
+    apply_bandpass_filter(residuals[5], statewhisker->zi[5], &statewhisker->whisker2_3, statewhisker->b, statewhisker->a);
 }
 
-void ProcessDataReceived(Whisker *whisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) {
-    if (whisker->count < DATA_SIZE) {
-        update_statistics(whisker, whisker1_1, 0);
-        update_statistics(whisker, whisker1_2, 1);
-        update_statistics(whisker, whisker1_3, 2);
-        update_statistics(whisker, whisker2_1, 3);
-        update_statistics(whisker, whisker2_2, 4);
-        update_statistics(whisker, whisker2_3, 5);
-        whisker->count++;
+void ProcessDataReceived(StateWhisker *statewhisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) {
+    if (statewhisker->count < DATA_SIZE) {
+        update_statistics(statewhisker, whisker1_1, 0);
+        update_statistics(statewhisker, whisker1_2, 1);
+        update_statistics(statewhisker, whisker1_3, 2);
+        update_statistics(statewhisker, whisker2_1, 3);
+        update_statistics(statewhisker, whisker2_2, 4);
+        update_statistics(statewhisker, whisker2_3, 5);
+        statewhisker->count++;
         
-        if (whisker->count == DATA_SIZE) {
-            calculate_parameters(whisker);
+        if (statewhisker->count == DATA_SIZE) {
+            calculate_parameters(statewhisker);
         }
     } else {
-        process_data(whisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
-        whisker->count++;
+        process_data(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        statewhisker->count++;
     }
 }
 
@@ -146,7 +130,7 @@ static StateCF transition(StateCF newState)
 }
 
 StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
-            float whisker2_1, float whisker2_2, float whisker2_3, Whisker *whisker, float timeOuter)
+            float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter)
 {
     timeNow = timeOuter;
 
@@ -167,16 +151,16 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
         break;
 
     case forward:
-        data_received(whisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
-        if (whisker->whisker1_1 > MIN_THRESHOLD1 || whisker->whisker2_1 > MIN_THRESHOLD2)
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        if (statewhisker->whisker1_1 > MIN_THRESHOLD1 || statewhisker->whisker2_1 > MIN_THRESHOLD2)
         {
             stateCF = transition(CF);
         }
         break;
 
     case CF:
-        data_received(whisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
-        if (whisker->whisker1_1 < MIN_THRESHOLD1 && whisker->whisker2_1 < MIN_THRESHOLD2)
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        if (statewhisker->whisker1_1 < MIN_THRESHOLD1 && statewhisker->whisker2_1 < MIN_THRESHOLD2)
         {
             stateCF = transition(forward);
         }
@@ -203,31 +187,31 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
         break;
 
     case CF:
-        if (MAX_THRESHOLD1 > whisker1_1 && whisker1_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > whisker2_1 && whisker2_1 > MIN_THRESHOLD2)
+        if (MAX_THRESHOLD1 > statewhisker->whisker1_1 && statewhisker->whisker1_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->whisker2_1 && statewhisker->whisker2_1 > MIN_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = -1.0f * maxSpeed;
             cmdAngWTemp = 0.0f;
         }
-        else if (MAX_THRESHOLD1 > whisker1_1 && whisker1_1 > MIN_THRESHOLD1 && whisker2_1 < MIN_THRESHOLD2)
+        else if (MAX_THRESHOLD1 > statewhisker->whisker1_1 && statewhisker->whisker1_1 > MIN_THRESHOLD1 && statewhisker->whisker2_1 < MIN_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = maxTurnRate;
         }
-        else if (whisker1_1 > MAX_THRESHOLD1 && MAX_THRESHOLD2 > whisker2_1 && whisker2_1 > MIN_THRESHOLD2)
+        else if (statewhisker->whisker1_1 > MAX_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->whisker2_1 && statewhisker->whisker2_1 > MIN_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = maxTurnRate;
         }
-        else if (MAX_THRESHOLD1 > whisker1_1 && whisker1_1 > MIN_THRESHOLD1 && whisker2_1 > MAX_THRESHOLD2)
+        else if (MAX_THRESHOLD1 > statewhisker->whisker1_1 && statewhisker->whisker1_1 > MIN_THRESHOLD1 && statewhisker->whisker2_1 > MAX_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = -1.0f * maxTurnRate;
         }
-        else if (whisker1_1 < MIN_THRESHOLD1 && MAX_THRESHOLD2 > whisker2_1 && whisker2_1 > MIN_THRESHOLD2)
+        else if (statewhisker->whisker1_1 < MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->whisker2_1 && statewhisker->whisker2_1 > MIN_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = 0.0f;
