@@ -95,14 +95,11 @@ void appMain()
   logVarId_t idwhisker2_1 = logGetVarId("Whisker1", "Barometer2_1");
   logVarId_t idwhisker2_2 = logGetVarId("Whisker1", "Barometer2_2");
   logVarId_t idwhisker2_3 = logGetVarId("Whisker1", "Barometer2_3");
-  logVarId_t idFront = logGetVarId("range", "front");
   
-  paramVarId_t idPositioningDeck = paramGetVarId("deck", "bcFlow2");
-  paramVarId_t idMultiranger = paramGetVarId("deck", "bcMultiranger");
 
   // Initialize the wall follower state machine
   FSMInit(MIN_THRESHOLD1, MAX_THRESHOLD1, MIN_THRESHOLD2, MAX_THRESHOLD2, maxSpeed, maxTurnRate, stateInnerLoop);
-
+  ProcessWhiskerInit(&statewhisker);
   // Intialize the setpoint structure
   setpoint_t setpoint;
 
@@ -111,9 +108,6 @@ void appMain()
   while(1) {
     vTaskDelay(M2T(20));
     //DEBUG_PRINT(".");
-    ProcessWhiskerInit(&statewhisker);
-    uint8_t positioningInit = paramGetUint(idPositioningDeck);
-    uint8_t multirangerInit = paramGetUint(idMultiranger);
 
     if (stateOuterLoop == 1) {
 
