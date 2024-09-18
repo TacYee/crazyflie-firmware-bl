@@ -84,14 +84,15 @@ def setup_logger():
     # flogger.enableConfig("attitude")
     # flogger.enableConfig("gyros")
     # flogger.enableConfig("acc")
-    flogger.enableConfig("state")
+    # flogger.enableConfig("state")
     flogger.enableConfig("whisker1")
     flogger.enableConfig("whisker2")
     flogger.enableConfig("PreWhisker1")
     flogger.enableConfig("PreWhisker2")
-    flogger.enableConfig("motor")
+    flogger.enableConfig("StateOuterLoop")
+    # flogger.enableConfig("motor")
     # flogger.enableConfig("otpos")
-    flogger.enableConfig("orientation")
+    # flogger.enableConfig("orientation")
     # flogger.enableConfig("WHISKER")
 
     # # UWB
@@ -102,7 +103,7 @@ def setup_logger():
         # For instance, see here: https://github.com/Huizerd/crazyflie-firmware/blob/master/src/utils/src/tdoa/tdoaEngine.c
         # flogger.enableConfig("tdoa")
     # Flow
-    flogger.enableConfig("laser")
+    # flogger.enableConfig("laser")
     #     flogger.enableConfig("flow")
     # OptiTrack
     # if args["optitrack"] != "none":
@@ -126,10 +127,16 @@ if __name__ == '__main__':
 
     cf = Crazyflie(rw_cache='./cache')
     with SyncCrazyflie(URI, cf=cf) as scf:
+        cf=scf.cf
         cf.platform.send_arming_request(True)
         filelogger=setup_logger()
+        keep_flying = True
+        time.sleep(3)
+        unlock_drone(cf)
+        print("start flying!")
         try:
-            unlock_drone(cf)
+            while keep_flying:
+                pass
         except KeyboardInterrupt:
             stop_drone(cf)
-        print('Demo terminated!')
+            print('Demo terminated!')

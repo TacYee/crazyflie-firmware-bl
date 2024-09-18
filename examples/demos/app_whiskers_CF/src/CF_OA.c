@@ -95,6 +95,7 @@ void appMain()
   logVarId_t idwhisker2_1 = logGetVarId("Whisker1", "Barometer2_1");
   logVarId_t idwhisker2_2 = logGetVarId("Whisker1", "Barometer2_2");
   logVarId_t idwhisker2_3 = logGetVarId("Whisker1", "Barometer2_3");
+  logVarId_t idHeightEstimate = logGetVarId("stateEstimate", "z");
   
 
   // Initialize the wall follower state machine
@@ -108,6 +109,7 @@ void appMain()
   while(1) {
     vTaskDelay(M2T(20));
     //DEBUG_PRINT(".");
+    float heightEstimate = logGetFloat(idHeightEstimate);
 
     if (stateOuterLoop == 1) {
 
@@ -132,11 +134,18 @@ void appMain()
         setHoverSetpoint(&setpoint, cmdVelX, cmdVelY, cmdHeight, cmdAngWDeg);
         commanderSetSetpoint(&setpoint, 3);
       }
-
-    if (stateOuterLoop == 2)
-      {
-        memset(&setpoint, 0, sizeof(setpoint_t));
+    }
+    else
+    {
+      if (stateOuterLoop == 2)
+      { 
+        setHoverSetpoint(&setpoint, 0.0f, 0.0f, 0.1f, 0);
         commanderSetSetpoint(&setpoint, 3);
+        if (heightEstimate < 0.11f)
+        {
+          memset(&setpoint, 0, sizeof(setpoint_t));
+          commanderSetSetpoint(&setpoint, 3);
+        }
       }
     }
   }

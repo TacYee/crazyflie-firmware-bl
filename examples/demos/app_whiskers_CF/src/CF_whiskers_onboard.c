@@ -9,11 +9,11 @@
 #include "CF_whiskers_onboard.h"
 #include <math.h>
 #include <stdlib.h>
+#include "debug.h"
 
 #define DATA_SIZE 100
 
 static float firstRun = false;
-static float TurnRate = 0.5f;
 static float maxSpeed = 0.2f;
 static float maxTurnRate = 25.0f;
 static float MIN_THRESHOLD1 = 20.0f;
@@ -76,12 +76,12 @@ void apply_bandpass_filter(float data, float *zi, float *filtered_data, float *b
 
 void process_data(StateWhisker *statewhisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) {
     float residuals[6];
-    residuals[0] = whisker1_1 - (statewhisker->slopes[0] * statewhisker->time_stamp + statewhisker->intercepts[0]);
-    residuals[1] = whisker1_2 - (statewhisker->slopes[1] * statewhisker->time_stamp + statewhisker->intercepts[1]);
-    residuals[2] = whisker1_3 - (statewhisker->slopes[2] * statewhisker->time_stamp + statewhisker->intercepts[2]);
-    residuals[3] = whisker2_1 - (statewhisker->slopes[3] * statewhisker->time_stamp + statewhisker->intercepts[3]);
-    residuals[4] = whisker2_2 - (statewhisker->slopes[4] * statewhisker->time_stamp + statewhisker->intercepts[4]);
-    residuals[5] = whisker2_3 - (statewhisker->slopes[5] * statewhisker->time_stamp + statewhisker->intercepts[5]);
+    residuals[0] = whisker1_1 - (statewhisker->slopes[0] * statewhisker->count + statewhisker->intercepts[0]);
+    residuals[1] = whisker1_2 - (statewhisker->slopes[1] * statewhisker->count + statewhisker->intercepts[1]);
+    residuals[2] = whisker1_3 - (statewhisker->slopes[2] * statewhisker->count + statewhisker->intercepts[2]);
+    residuals[3] = whisker2_1 - (statewhisker->slopes[3] * statewhisker->count + statewhisker->intercepts[3]);
+    residuals[4] = whisker2_2 - (statewhisker->slopes[4] * statewhisker->count + statewhisker->intercepts[4]);
+    residuals[5] = whisker2_3 - (statewhisker->slopes[5] * statewhisker->count + statewhisker->intercepts[5]);
 
     apply_bandpass_filter(residuals[0], statewhisker->zi[0], &statewhisker->whisker1_1, statewhisker->b, statewhisker->a);
     apply_bandpass_filter(residuals[1], statewhisker->zi[1], &statewhisker->whisker1_2, statewhisker->b, statewhisker->a);

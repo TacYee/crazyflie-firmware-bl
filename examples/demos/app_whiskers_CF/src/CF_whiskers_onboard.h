@@ -29,7 +29,6 @@ typedef struct{
     float intercepts[6];
     int count;
     float zi[6][2];
-    float time_stamp;
     float b[3], a[3];  
 } StateWhisker;
 
@@ -41,20 +40,5 @@ void FSMInit(float MIN_THRESHOLD1_input, float MAX_THRESHOLD1_input,
              float MIN_THRESHOLD2_input, float MAX_THRESHOLD2_input, 
              float maxSpeed_input, float maxTurnRate_input, StateCF initState);
 
-void ProcessWhiskerInit(StateWhisker *statewhisker) {
-    for (int i = 0; i < 6; i++) {
-        statewhisker->zi[i][0] = 0.0f;  // Initialize filter state
-        statewhisker->zi[i][1] = 0.0f;
-    }
-    
-    statewhisker->count = 0;
-    
-    // 1st order butterworth filter 0.05-1hz
-    statewhisker->b[0] = 0.05639124;
-    statewhisker->b[1] = 0.0f;
-    statewhisker->b[2] = -0.05639124;
-    statewhisker->a[0] = 1.0f;
-    statewhisker->a[1] = -1.88647164;
-    statewhisker->a[2] = 0.88721752;
-};
+void ProcessWhiskerInit(StateWhisker *statewhisker);
 #endif /* SRC_CF_WHISKERS_ONBOARD_H_ */

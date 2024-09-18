@@ -57,7 +57,7 @@ static bool registerRequiredEstimator(StateEstimatorType estimator);
 static bool requiredLowInterferenceRadioMode = false;
 
 static char* deck_force = CONFIG_DECK_FORCE;
-static char* deck_force1 = CONFIG_DECK_FORCE1;
+static char* deck_force1 = "Whisker1";
 
 void deckInfoInit()
 {

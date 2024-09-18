@@ -59,22 +59,29 @@
         "name": "PreWhisker1",
         "type": "CF",
         "period": 20,
-        "variables": ["CF_OA.PreprocessWhisker1_1",
-                      "CF_OA.PreprocessWhisker1_2",
-                      "CF_OA.PreprocessWhisker1_3"],
-        "headers": ["preprocesswhisker1_1", "preprocesswhisker1_2", "preprocesswhisker1_3"]
+        "variables": ["app.PreprocessWhisker1_1",
+                      "app.PreprocessWhisker1_2",
+                      "app.PreprocessWhisker1_3"],
+        "headers": ["prewhisker1_1", "prewhisker1_2", "prewhisker1_3"]
     },
 
     "PreWhisker2":{
         "name": "PreWhisker2",
         "type": "CF",
         "period": 20,
-        "variables": ["CF_OA.PreprocessWhisker2_1",
-                      "CF_OA.PreprocessWhisker2_2",
-                      "CF_OA.PreprocessWhisker2_3"],
-        "headers": ["preprocesswhisker2_1", "preprocesswhisker2_2", "preprocesswhisker2_3"]
+        "variables": ["app.PreprocessWhisker2_1",
+                      "app.PreprocessWhisker2_2",
+                      "app.PreprocessWhisker2_3"],
+        "headers": ["prewhisker2_1", "prewhisker2_2", "prewhisker2_3"]
     },
 
+    "StateOuterLoop":{
+        "name": "StateOuterLoop",
+        "type": "CF",
+        "period": 20,
+        "variables": ["app.stateOuterLoop"],
+        "headers": ["stateouterloop"]
+    },
 
     "orientation":{
         "name": "orientation",
