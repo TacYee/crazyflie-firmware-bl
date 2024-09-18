@@ -1,2 +1,2 @@
-obj-y += CF.o
+obj-y += CF_OA.o
 obj-y += CF_whiskers_onboard.o

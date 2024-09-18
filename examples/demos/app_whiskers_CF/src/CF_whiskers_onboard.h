@@ -17,6 +17,7 @@ typedef enum
     CF
 } StateCF;
 
+
 typedef struct{
     float whisker1_1, whisker1_2, whisker1_3;
     float whisker2_1, whisker2_2, whisker2_3;
@@ -29,7 +30,7 @@ typedef struct{
     int count;
     float zi[6][2];
     float time_stamp;
-    float b[3], a[3];  // Filter coefficients (3-tap filter example)
+    float b[3], a[3];  
 } StateWhisker;
 
 StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 

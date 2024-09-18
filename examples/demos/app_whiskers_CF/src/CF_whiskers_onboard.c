@@ -42,6 +42,7 @@ void ProcessWhiskerInit(StateWhisker *statewhisker) {
     statewhisker->a[0] = 1.0f;
     statewhisker->a[1] = -1.88647164;
     statewhisker->a[2] = 0.88721752;
+    DEBUG_PRINT("Initialize preprocessing parameters.\n");
 }
 
 void update_statistics(StateWhisker *statewhisker, float data, int index) {
@@ -102,6 +103,7 @@ void ProcessDataReceived(StateWhisker *statewhisker, float whisker1_1, float whi
         
         if (statewhisker->count == DATA_SIZE) {
             calculate_parameters(statewhisker);
+            DEBUG_PRINT("Apply linear fitting parameters.\n");
         }
     } else {
         process_data(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
@@ -121,6 +123,7 @@ void FSMInit(float MIN_THRESHOLD1_input, float MAX_THRESHOLD1_input,
   maxTurnRate = maxTurnRate_input;
   firstRun = true;
   stateCF = initState;
+  DEBUG_PRINT("Initialize FSM parameters.\n");
 }
 
 static StateCF transition(StateCF newState)
@@ -147,6 +150,7 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
         if (timeNow - StartTime >= waitForStartSeconds)
         {
             stateCF = transition(forward);
+            DEBUG_PRINT("Hover complete. Starting forward.\n");
         }
         break;
 
@@ -155,6 +159,7 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
         if (statewhisker->whisker1_1 > MIN_THRESHOLD1 || statewhisker->whisker2_1 > MIN_THRESHOLD2)
         {
             stateCF = transition(CF);
+            DEBUG_PRINT("Obstacles encountered. Starting contour tracking.\n");
         }
         break;
 
@@ -163,6 +168,7 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
         if (statewhisker->whisker1_1 < MIN_THRESHOLD1 && statewhisker->whisker2_1 < MIN_THRESHOLD2)
         {
             stateCF = transition(forward);
+            DEBUG_PRINT("Lose contact. Flyingforward.\n");
         }
         break;
     }
