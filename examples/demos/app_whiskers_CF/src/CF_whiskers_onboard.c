@@ -14,14 +14,17 @@
 #define DATA_SIZE 100
 
 static float firstRun = false;
+static float firstRunPreprocess = false;
 static float maxSpeed = 0.2f;
 static float maxTurnRate = 25.0f;
 static float MIN_THRESHOLD1 = 20.0f;
 static float MAX_THRESHOLD1 = 100.0f;
-static float MIN_THRESHOLD2 = 20.0f;
-static float MAX_THRESHOLD2 = 100.0f;
+static float MIN_THRESHOLD2 = 30.0f;
+static float MAX_THRESHOLD2 = 120.0f;
+static float MAX_FILTERTHRESHOLD1 = 10.0f;
+static float MAX_FILTERTHRESHOLD2 = 10.0f;
 static float StartTime;
-static const float waitForStartSeconds = 3.0f;
+static const float waitForStartSeconds = 10.0f;
 static float stateStartTime;
 
 static StateCF stateCF = hover;
@@ -34,6 +37,7 @@ void ProcessWhiskerInit(StateWhisker *statewhisker) {
     }
     
     statewhisker->count = 0;
+    statewhisker->preprocesscount = 0;
     
     // 1st order butterworth filter 0.05-1hz
     statewhisker->b[0] = 0.05639124;
@@ -42,6 +46,7 @@ void ProcessWhiskerInit(StateWhisker *statewhisker) {
     statewhisker->a[0] = 1.0f;
     statewhisker->a[1] = -1.88647164;
     statewhisker->a[2] = 0.88721752;
+    firstRunPreprocess = true;
     DEBUG_PRINT("Initialize preprocessing parameters.\n");
 }
 
@@ -92,7 +97,8 @@ void process_data(StateWhisker *statewhisker, float whisker1_1, float whisker1_2
 }
 
 void ProcessDataReceived(StateWhisker *statewhisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) {
-    if (statewhisker->count < DATA_SIZE) {
+    if (firstRunPreprocess)
+    {
         update_statistics(statewhisker, whisker1_1, 0);
         update_statistics(statewhisker, whisker1_2, 1);
         update_statistics(statewhisker, whisker1_3, 2);
@@ -100,14 +106,57 @@ void ProcessDataReceived(StateWhisker *statewhisker, float whisker1_1, float whi
         update_statistics(statewhisker, whisker2_2, 4);
         update_statistics(statewhisker, whisker2_3, 5);
         statewhisker->count++;
-        
-        if (statewhisker->count == DATA_SIZE) {
+        if (statewhisker->count == DATA_SIZE) 
+        {
             calculate_parameters(statewhisker);
+            for (int i = 0; i < 6; i++) 
+            {
+                statewhisker->sum_x[i] = 0.0f;
+                statewhisker->sum_y[i] = 0.0f;
+                statewhisker->sum_x_squared[i] = 0.0f;
+                statewhisker->sum_xy[i] = 0.0f;
+            }
+            firstRunPreprocess = false;
+            DEBUG_PRINT("First Apply linear fitting parameters.\n");
+        }
+    }
+    else 
+    {   
+        update_statistics(statewhisker, whisker1_1, 0);
+        update_statistics(statewhisker, whisker1_2, 1);
+        update_statistics(statewhisker, whisker1_3, 2);
+        update_statistics(statewhisker, whisker2_1, 3);
+        update_statistics(statewhisker, whisker2_2, 4);
+        update_statistics(statewhisker, whisker2_3, 5);
+        statewhisker->count++;
+        statewhisker->preprocesscount++;
+        process_data(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        if (statewhisker->whisker1_1 > MIN_FILTERTHRESHOLD1 || statewhisker->whisker2_1 > MIN_FILTERTHRESHOLD2)
+        {
+            for (int i = 0; i < 6; i++) 
+            {
+                statewhisker->sum_x[i] = 0.0f;
+                statewhisker->sum_y[i] = 0.0f;
+                statewhisker->sum_x_squared[i] = 0.0f;
+                statewhisker->sum_xy[i] = 0.0f;
+            }
+            statewhisker->preprocesscount = 0;
+        }
+        else if (statewhisker->preprocesscount == DATA_SIZE) 
+        {
+            calculate_parameters(statewhisker);
+            for (int i = 0; i < 6; i++) 
+            {
+                statewhisker->sum_x[i] = 0.0f;
+                statewhisker->sum_y[i] = 0.0f;
+                statewhisker->sum_x_squared[i] = 0.0f;
+                statewhisker->sum_xy[i] = 0.0f;
+                statewhisker->zi[i][0] = 0.0f;  // Initialize filter state
+                statewhisker->zi[i][1] = 0.0f;
+            }
+            statewhisker->preprocesscount = 0;
             DEBUG_PRINT("Apply linear fitting parameters.\n");
         }
-    } else {
-        process_data(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
-        statewhisker->count++;
     }
 }
 

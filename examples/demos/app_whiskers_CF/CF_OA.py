@@ -122,21 +122,29 @@ if __name__ == '__main__':
     parser.add_argument("--logconfig", type=str, required=True)
     parser.add_argument("--filename", type=str, default=None)
     args = vars(parser.parse_args())
+    
     # Initialize the low-level drivers (don't list the debug drivers)
     cflib.crtp.init_drivers()
 
     cf = Crazyflie(rw_cache='./cache')
     with SyncCrazyflie(URI, cf=cf) as scf:
-        cf=scf.cf
         cf.platform.send_arming_request(True)
         filelogger=setup_logger()
         keep_flying = True
         time.sleep(3)
-        unlock_drone(cf)
+        unlock_drone(scf.cf)
         print("start flying!")
         try:
             while keep_flying:
-                pass
+                command = input("Enter 's' to stop the drone: ").strip().lower()
+                if command == 's':
+                    print("Stop command received!")
+                    keep_flying = False
+
+            # 当 keep_flying 变为 False，开始执行停止逻辑
+            while not keep_flying:
+                stop_drone(scf.cf)  # 不断调用 stop_drone 函数
+                print("Stopping the drone...")
+                time.sleep(0.1)  # 给些延时，避免过度调用
         except KeyboardInterrupt:
-            stop_drone(cf)
             print('Demo terminated!')

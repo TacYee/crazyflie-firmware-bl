@@ -28,6 +28,7 @@ typedef struct{
     float slopes[6];
     float intercepts[6];
     int count;
+    int preprocesscount;
     float zi[6][2];
     float b[3], a[3];  
 } StateWhisker;
