@@ -17,10 +17,10 @@ static float firstRun = false;
 static float firstRunPreprocess = false;
 static float maxSpeed = 0.2f;
 static float maxTurnRate = 25.0f;
-static float MIN_THRESHOLD1 = 20.0f;
+static float MIN_THRESHOLD1 = 25.0f;
 static float MAX_THRESHOLD1 = 100.0f;
-static float MIN_THRESHOLD2 = 30.0f;
-static float MAX_THRESHOLD2 = 120.0f;
+static float MIN_THRESHOLD2 = 35.0f;
+static float MAX_THRESHOLD2 = 150.0f;
 static float MAX_FILTERTHRESHOLD1 = 10.0f;
 static float MAX_FILTERTHRESHOLD2 = 10.0f;
 static float StartTime;
@@ -31,7 +31,8 @@ static StateCF stateCF = hover;
 float timeNow = 0.0f;
 
 void ProcessWhiskerInit(StateWhisker *statewhisker) {
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 6; i++) 
+    {
         statewhisker->zi[i][0] = 0.0f;  // Initialize filter state
         statewhisker->zi[i][1] = 0.0f;
     }
@@ -61,7 +62,8 @@ void update_statistics(StateWhisker *statewhisker, float data, int index) {
 
 void calculate_parameters(StateWhisker *statewhisker) {
     int n = DATA_SIZE;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 6; i++) 
+    {
         statewhisker->slopes[i] = (n * statewhisker->sum_xy[i] - statewhisker->sum_x[i] * statewhisker->sum_y[i]) /
                              (n * statewhisker->sum_x_squared[i] - statewhisker->sum_x[i] * statewhisker->sum_x[i]);
         statewhisker->intercepts[i] = (statewhisker->sum_y[i] - statewhisker->slopes[i] * statewhisker->sum_x[i]) / n;
@@ -131,7 +133,7 @@ void ProcessDataReceived(StateWhisker *statewhisker, float whisker1_1, float whi
         statewhisker->count++;
         statewhisker->preprocesscount++;
         process_data(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
-        if (statewhisker->whisker1_1 > MIN_FILTERTHRESHOLD1 || statewhisker->whisker2_1 > MIN_FILTERTHRESHOLD2)
+        if (statewhisker->whisker1_1 > MAX_FILTERTHRESHOLD1 || statewhisker->whisker2_1 > MAX_FILTERTHRESHOLD2)
         {
             for (int i = 0; i < 6; i++) 
             {
