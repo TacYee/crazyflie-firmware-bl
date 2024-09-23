@@ -19,8 +19,8 @@ static float maxSpeed = 0.2f;
 static float maxTurnRate = 25.0f;
 static float MIN_THRESHOLD1 = 25.0f;
 static float MAX_THRESHOLD1 = 100.0f;
-static float MIN_THRESHOLD2 = 35.0f;
-static float MAX_THRESHOLD2 = 150.0f;
+static float MIN_THRESHOLD2 = 25.0f;
+static float MAX_THRESHOLD2 = 100.0f;
 static float MAX_FILTERTHRESHOLD1 = 10.0f;
 static float MAX_FILTERTHRESHOLD2 = 10.0f;
 static float StartTime;
@@ -30,7 +30,8 @@ static float stateStartTime;
 static StateCF stateCF = hover;
 float timeNow = 0.0f;
 
-void ProcessWhiskerInit(StateWhisker *statewhisker) {
+void ProcessWhiskerInit(StateWhisker *statewhisker) 
+{
     for (int i = 0; i < 6; i++) 
     {
         statewhisker->zi[i][0] = 0.0f;  // Initialize filter state
@@ -51,7 +52,8 @@ void ProcessWhiskerInit(StateWhisker *statewhisker) {
     DEBUG_PRINT("Initialize preprocessing parameters.\n");
 }
 
-void update_statistics(StateWhisker *statewhisker, float data, int index) {
+void update_statistics(StateWhisker *statewhisker, float data, int index) 
+{
     float x = (float)statewhisker->count;
     statewhisker->sum_x[index] += x;
     statewhisker->sum_y[index] += data;
@@ -60,7 +62,8 @@ void update_statistics(StateWhisker *statewhisker, float data, int index) {
 }
 
 
-void calculate_parameters(StateWhisker *statewhisker) {
+void calculate_parameters(StateWhisker *statewhisker) 
+{
     int n = DATA_SIZE;
     for (int i = 0; i < 6; i++) 
     {
@@ -71,7 +74,8 @@ void calculate_parameters(StateWhisker *statewhisker) {
 }
 
 
-void apply_bandpass_filter(float data, float *zi, float *filtered_data, float *b, float *a) {
+void apply_bandpass_filter(float data, float *zi, float *filtered_data, float *b, float *a) 
+{
     float input = data;
     float output = b[0] * input + zi[0];
     zi[0] = b[1] * input - a[1] * output + zi[1];
@@ -81,7 +85,8 @@ void apply_bandpass_filter(float data, float *zi, float *filtered_data, float *b
 
 
 
-void process_data(StateWhisker *statewhisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) {
+void process_data(StateWhisker *statewhisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) 
+{
     float residuals[6];
     residuals[0] = whisker1_1 - (statewhisker->slopes[0] * statewhisker->count + statewhisker->intercepts[0]);
     residuals[1] = whisker1_2 - (statewhisker->slopes[1] * statewhisker->count + statewhisker->intercepts[1]);
@@ -98,7 +103,8 @@ void process_data(StateWhisker *statewhisker, float whisker1_1, float whisker1_2
     apply_bandpass_filter(residuals[5], statewhisker->zi[5], &statewhisker->whisker2_3, statewhisker->b, statewhisker->a);
 }
 
-void ProcessDataReceived(StateWhisker *statewhisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) {
+void ProcessDataReceived(StateWhisker *statewhisker, float whisker1_1, float whisker1_2, float whisker1_3, float whisker2_1, float whisker2_2, float whisker2_3) 
+{
     if (firstRunPreprocess)
     {
         update_statistics(statewhisker, whisker1_1, 0);
