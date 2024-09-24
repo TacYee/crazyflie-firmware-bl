@@ -87,9 +87,8 @@
         "name": "orientation",
         "type": "CF",
         "period": 20,
-        "variables": ["stabilizer.roll",
-                      "stabilizer.pitch"],
-        "headers": ["roll", "pitch"]
+        "variables": ["stabilizer.yaw"],
+        "headers": ["yaw"]
     },
 
     "flow":{
@@ -138,8 +137,8 @@
         "name": "mocap",
         "type": "EXT",
         "period": 20,
-        "variables": ["pos_x", "pos_y", "pos_z", "rot_x", "rot_y", "rot_z", "rot_w"],
-        "headers": ["Position X", "Position Y", "Position Z", "Rotation X", "Rotation Y", "Rotation Z", "Rotation W"]
+        "variables": ["pos_x", "pos_y", "pos_z", "yaw"],
+        "headers": ["Position X", "Position Y", "Position Z", "yaw"]
     }
 }
 

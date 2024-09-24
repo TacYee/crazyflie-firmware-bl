@@ -12,6 +12,7 @@ from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from FileLogger import FileLogger
 from cflib.utils import uri_helper
+import math
 
 URI = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E7E7')
 
@@ -30,17 +31,24 @@ send_full_pose = True
 
 #obtain position and rotation from mocap
 class MocapWrapper(Thread):
-    def __init__(self, body_name):
-        Thread.__init__(self)
-
+    def __init__(self, body_name, file_logger):
+        super().__init__()
         self.body_name = body_name
+        self.file_logger = file_logger
         self.on_pose = None
         self._stay_open = True
-
+        self.data_dict = {
+            "pos_x": 0.0, 
+            "pos_y": 0.0, 
+            "pos_z": 0.0, 
+            "yaw": 0.0  # 只保留 yaw
+        }
         self.start()
 
-    def close(self):
-        self._stay_open = False
+    def quaternion_to_yaw(self, x, y, z, w):
+        """从四元数计算 yaw"""
+        yaw = math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+        return yaw
 
     def run(self):
         mc = motioncapture.connect(mocap_system_type, {'hostname': host_name})
@@ -50,9 +58,21 @@ class MocapWrapper(Thread):
                 if name == self.body_name:
                     if self.on_pose:
                         pos = obj.position
-                        #call back on pose
-                        self.on_pose([pos[0], pos[1], pos[2], obj.rotation])
-                    time.sleep(0.02)
+                        rot = obj.rotation
+                        # 计算 yaw
+                        yaw = self.quaternion_to_yaw(rot[0], rot[1], rot[2], rot[3])
+                        # 更新数据字典
+                        self.data_dict = {
+                            "pos_x": pos[0],
+                            "pos_y": pos[1],
+                            "pos_z": pos[2],
+                            "yaw": yaw
+                        }
+                    time.sleep(0.02)  # 20ms
+
+    def sync_mocap_data(self):
+        """将外部 mocap 数据同步到 FileLogger 中"""
+        self.file_logger.registerData("mocap", self.data_dict)
 
 def unlock_drone(cf):
     cf.param.set_value('app.stateOuterLoop', '1')
@@ -116,72 +136,36 @@ def get_filename():
     return fname
 
 def setup_logger():
-    # Create directory if not there
+    # 创建文件和日志配置
     Path(args["fileroot"]).mkdir(exist_ok=True)
-        
-    # Create filename from options and date
     log_file = get_filename()
 
     print(f"Log location: {log_file}")
 
-
-    # Logger setup
+    # 初始化 FileLogger
     logconfig = args["logconfig"]
     flogger = FileLogger(cf, logconfig, log_file)
-    # flogger3 = FileLogger(cf, logconfig, log_file3)
 
-    # Enable log configurations based on system setup:
-    # Defaults
-    # flogger.enableConfig("attitude")
-    # flogger.enableConfig("gyros")
-    # flogger.enableConfig("acc")
+    # 启用 CF 类型的日志配置
     flogger.enableConfig("state")
     flogger.enableConfig("whisker1")
     flogger.enableConfig("whisker2")
     flogger.enableConfig("PreWhisker1")
     flogger.enableConfig("PreWhisker2")
+    flogger.enableConfig("StateOuterLoop")
     flogger.enableConfig("orientation")
-    flogger.enableConfig("mocap") 
 
-    # # UWB
-    # if args["uwb"] == "twr":
-    #     flogger.enableConfig("twr")
-    # elif args["uwb"] == "tdoa":
-    #     print("Needs custom TDoA logging in firmware!")
-        # For instance, see here: https://github.com/Huizerd/crazyflie-firmware/blob/master/src/utils/src/tdoa/tdoaEngine.c
-        # flogger.enableConfig("tdoa")
-    # Flow
-    if args["flow"]:
-        flogger.enableConfig("laser")
-    #     flogger.enableConfig("flow")
-    # OptiTrack
-    # if args["optitrack"] != "none":
-    #     flogger.enableConfig("kalman")
+    # 启动 mocap 数据同步
+    flogger.enableConfig("mocap")  # 启用 mocap 配置
+    mocap_logger = MocapWrapper(body_name, flogger)
+
+    # 启动日志记录
     flogger.start()
-    # flogger2.start()
-    # flogger3.start()
-    # # Estimator
-    # if args["estimator"] == "kalman":
-    #     flogger.enableConfig("kalman")
-    # Initialize MocapWrapper to log position and rotation
-    mocap_wrapper = MocapWrapper(body_name)
 
-    # Define a callback to register position and rotation data into the logger
-    def handle_pose(pose_data):
-        # Register mocap data in the FileLogger
-        data_dict = {
-            "pos_x": pose_data[0],  # X position
-            "pos_y": pose_data[1],  # Y position
-            "pos_z": pose_data[2],  # Z position
-            "rot_x": pose_data[3][0],  # Rotation X (Quaternion)
-            "rot_y": pose_data[3][1],  # Rotation Y (Quaternion)
-            "rot_z": pose_data[3][2],  # Rotation Z (Quaternion)
-            "rot_w": pose_data[3][3]   # Rotation W (Quaternion)
-        }
-        flogger.registerData("mocap", data_dict)
-
-    # Register the pose callback
-    mocap_wrapper.on_pose = handle_pose
+    # 每 20ms 同步一次 mocap 数据
+    while flogger.is_connected:
+        mocap_logger.sync_mocap_data()
+        time.sleep(0.02)  # 20ms
 
 if __name__ == '__main__':
 
