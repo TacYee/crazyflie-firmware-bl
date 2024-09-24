@@ -9,7 +9,6 @@
 #define SRC_CF_WHISKERS_ONBOARD_H_
 #include <stdint.h>
 #include <stdbool.h>
-#define INPUT_SIZE 3
 
 typedef enum
 {

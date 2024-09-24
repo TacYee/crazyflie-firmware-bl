@@ -1,11 +1,12 @@
 import logging
 import sys
+from threading import Thread
 import time
 import os
 import argparse
 from datetime import datetime
 from pathlib import Path
-
+import motioncapture
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
@@ -13,6 +14,45 @@ from FileLogger import FileLogger
 from cflib.utils import uri_helper
 
 URI = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E7E7')
+
+# The host name or ip address of the mocap system
+host_name = '192.168.209.81'
+
+# The type of the mocap system
+# Valid options are: 'vicon', 'optitrack', 'optitrack_closed_source', 'qualisys', 'nokov', 'vrpn', 'motionanalysis'
+mocap_system_type = 'optitrack'
+
+body_name = "Chaoxiang"  # Replace with your actual body name
+
+
+# True: send position and orientation; False: send position only
+send_full_pose = True
+
+#obtain position and rotation from mocap
+class MocapWrapper(Thread):
+    def __init__(self, body_name):
+        Thread.__init__(self)
+
+        self.body_name = body_name
+        self.on_pose = None
+        self._stay_open = True
+
+        self.start()
+
+    def close(self):
+        self._stay_open = False
+
+    def run(self):
+        mc = motioncapture.connect(mocap_system_type, {'hostname': host_name})
+        while self._stay_open:
+            mc.waitForNextFrame()
+            for name, obj in mc.rigidBodies.items():
+                if name == self.body_name:
+                    if self.on_pose:
+                        pos = obj.position
+                        #call back on pose
+                        self.on_pose([pos[0], pos[1], pos[2], obj.rotation])
+                    time.sleep(0.02)
 
 def unlock_drone(cf):
     cf.param.set_value('app.stateOuterLoop', '1')
@@ -95,16 +135,13 @@ def setup_logger():
     # flogger.enableConfig("attitude")
     # flogger.enableConfig("gyros")
     # flogger.enableConfig("acc")
-    # flogger.enableConfig("state")
+    flogger.enableConfig("state")
     flogger.enableConfig("whisker1")
     flogger.enableConfig("whisker2")
     flogger.enableConfig("PreWhisker1")
     flogger.enableConfig("PreWhisker2")
-    flogger.enableConfig("StateOuterLoop")
-    # flogger.enableConfig("motor")
-    # flogger.enableConfig("otpos")
-    # flogger.enableConfig("orientation")
-    # flogger.enableConfig("WHISKER")
+    flogger.enableConfig("orientation")
+    flogger.enableConfig("mocap") 
 
     # # UWB
     # if args["uwb"] == "twr":
@@ -114,7 +151,8 @@ def setup_logger():
         # For instance, see here: https://github.com/Huizerd/crazyflie-firmware/blob/master/src/utils/src/tdoa/tdoaEngine.c
         # flogger.enableConfig("tdoa")
     # Flow
-    # flogger.enableConfig("laser")
+    if args["flow"]:
+        flogger.enableConfig("laser")
     #     flogger.enableConfig("flow")
     # OptiTrack
     # if args["optitrack"] != "none":
@@ -125,6 +163,25 @@ def setup_logger():
     # # Estimator
     # if args["estimator"] == "kalman":
     #     flogger.enableConfig("kalman")
+    # Initialize MocapWrapper to log position and rotation
+    mocap_wrapper = MocapWrapper(body_name)
+
+    # Define a callback to register position and rotation data into the logger
+    def handle_pose(pose_data):
+        # Register mocap data in the FileLogger
+        data_dict = {
+            "pos_x": pose_data[0],  # X position
+            "pos_y": pose_data[1],  # Y position
+            "pos_z": pose_data[2],  # Z position
+            "rot_x": pose_data[3][0],  # Rotation X (Quaternion)
+            "rot_y": pose_data[3][1],  # Rotation Y (Quaternion)
+            "rot_z": pose_data[3][2],  # Rotation Z (Quaternion)
+            "rot_w": pose_data[3][3]   # Rotation W (Quaternion)
+        }
+        flogger.registerData("mocap", data_dict)
+
+    # Register the pose callback
+    mocap_wrapper.on_pose = handle_pose
 
 if __name__ == '__main__':
 

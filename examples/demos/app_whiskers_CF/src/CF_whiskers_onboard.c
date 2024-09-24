@@ -9,7 +9,6 @@
 #include "CF_whiskers_onboard.h"
 #include <math.h>
 #include <stdlib.h>
-#include "debug.h"
 #include "mlp.h"
 
 #define DATA_SIZE 100
@@ -55,7 +54,7 @@ void ProcessWhiskerInit(StateWhisker *statewhisker)
     statewhisker->a[1] = -1.88647164;
     statewhisker->a[2] = 0.88721752;
     firstRunPreprocess = true;
-    printf("Initialize preprocessing parameters.\n");
+    DEBUG_PRINT("Initialize preprocessing parameters.\n");
 }
 
 void update_statistics(StateWhisker *statewhisker, float data, int index) 
@@ -131,7 +130,7 @@ void ProcessDataReceived(StateWhisker *statewhisker, float whisker1_1, float whi
                 statewhisker->sum_xy[i] = 0.0f;
             }
             firstRunPreprocess = false;
-            printf("First Apply linear fitting parameters.\n");
+            DEBUG_PRINT("First Apply linear fitting parameters.\n");
         }
     }
     else 
@@ -169,7 +168,7 @@ void ProcessDataReceived(StateWhisker *statewhisker, float whisker1_1, float whi
                 statewhisker->zi[i][1] = 0.0f;
             }
             statewhisker->preprocesscount = 0;
-            printf("Apply linear fitting parameters.\n");
+            DEBUG_PRINT("Apply linear fitting parameters.\n");
         }
     }
 }
@@ -186,7 +185,7 @@ void FSMInit(float MIN_THRESHOLD1_input, float MAX_THRESHOLD1_input,
   maxTurnRate = maxTurnRate_input;
   firstRun = true;
   stateCF = initState;
-  printf("Initialize FSM parameters.\n");
+  DEBUG_PRINT("Initialize FSM parameters.\n");
 }
 
 static StateCF transition(StateCF newState)
@@ -213,7 +212,7 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
         if (timeNow - StartTime >= waitForStartSeconds)
         {
             stateCF = transition(forward);
-            printf("Hover complete. Starting forward.\n");
+            DEBUG_PRINT("Hover complete. Starting forward.\n");
         }
         break;
 
@@ -222,7 +221,7 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
         if (statewhisker->whisker1_1 > CF_THRESHOLD1 || statewhisker->whisker2_1 > CF_THRESHOLD2)
         {
             stateCF = transition(CF);
-            printf("Obstacles encountered. Starting contour tracking.\n");
+            DEBUG_PRINT("Obstacles encountered. Starting contour tracking.\n");
         }
         break;
 
@@ -231,7 +230,7 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
         if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
             stateCF = transition(forward);
-            printf("Lose contact. Flyingforward.\n");
+            DEBUG_PRINT("Lose contact. Flyingforward.\n");
         }
         break;
     }
@@ -332,7 +331,7 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
         if (timeNow - StartTime >= waitForStartSeconds)
         {
             stateCF = transition(forward);
-            printf("Hover complete. Starting forward.\n");
+            DEBUG_PRINT("Hover complete. Starting forward.\n");
         }
         break;
 
@@ -341,21 +340,21 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
         if (statewhisker->whisker1_1 > CF_THRESHOLD1 || statewhisker->whisker2_1 > CF_THRESHOLD2)
         {
             stateCF = transition(CF);
-            printf("Obstacles encountered. Starting contour tracking.\n");
+            DEBUG_PRINT("Obstacles encountered. Starting contour tracking.\n");
         }
         break;
 
     case CF:
         ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
-
-        if (!is_MLP_initialized) {
+        if (!is_MLP_initialized) 
+        {
             // 进入 CF 状态时，动态分配 MLP 参数的内存
             params_1 = (MLPParams*)malloc(sizeof(MLPParams));
             params_2 = (MLPParams*)malloc(sizeof(MLPParams));
 
             if (params_1 == NULL || params_2 == NULL) {
                 // 检查内存分配是否成功
-                printf("Memory allocation failed!\n");
+                DEBUG_PRINT("Memory allocation failed!\n");
                 exit(1); // 分配失败时退出程序，或采取其他错误处理措施
             }
 
@@ -363,12 +362,13 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
             init_mlp_params(params_1, params_2);
 
             is_MLP_initialized = 1; // 标记已初始化
-            printf("CF state initialized.\n");
+            DEBUG_PRINT("CF state initialized.\n");
         }
+        dis_net(statewhisker, params_1, params_2);
         if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
             stateCF = transition(forward);
-            printf("Lose contact. Flyingforward.\n");
+            DEBUG_PRINT("Lose contact. Flyingforward.\n");
 
             // 离开 CF 状态时，释放动态分配的内存
             free_mlp_params(params_1, params_2);
@@ -376,7 +376,7 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
             params_2 = NULL;
 
             is_MLP_initialized = 0; // 重置标志，以便下次进入时重新初始化
-            printf("Exiting CF state, resources released.\n");
+            DEBUG_PRINT("Exiting CF state, resources released.\n");
         }
         break;
     }

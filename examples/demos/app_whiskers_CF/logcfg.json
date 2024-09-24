@@ -131,6 +131,15 @@
                       "locSrv.y",
                       "locSrv.z"],
         "headers": ["otX", "otY", "otZ"]
+    },
+
+
+    "mocap": {
+        "name": "mocap",
+        "type": "EXT",
+        "period": 20,
+        "variables": ["pos_x", "pos_y", "pos_z", "rot_x", "rot_y", "rot_z", "rot_w"],
+        "headers": ["Position X", "Position Y", "Position Z", "Rotation X", "Rotation Y", "Rotation Z", "Rotation W"]
     }
 }
 
