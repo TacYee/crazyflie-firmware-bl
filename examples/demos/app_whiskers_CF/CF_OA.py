@@ -20,6 +20,17 @@ def unlock_drone(cf):
 def stop_drone(cf):
     cf.param.set_value('app.stateOuterLoop', '2')
 
+def apply_mlp(cf):
+    cf.param.set_value('app.statemlp', '1')
+
+def set_initial_params(cf, MIN_THRESHOLD1, MAX_THRESHOLD1, MIN_THRESHOLD2, MAX_THRESHOLD2, maxSpeed, maxTurnRate):
+    cf.param.set_value('app.MIN_THRESHOLD1', str(MIN_THRESHOLD1)) 
+    cf.param.set_value('app.MAX_THRESHOLD1', str(MAX_THRESHOLD1))
+    cf.param.set_value('app.MIN_THRESHOLD2', str(MIN_THRESHOLD2))
+    cf.param.set_value('app.MAX_THRESHOLD2', str(MAX_THRESHOLD2))
+    cf.param.set_value('app.maxSpeed', str(maxSpeed))
+    cf.param.set_value('app.maxTurnRate', str(maxTurnRate))
+
 def get_filename():
     fileroot = args["fileroot"] 
         
@@ -132,6 +143,7 @@ if __name__ == '__main__':
         filelogger=setup_logger()
         keep_flying = True
         time.sleep(3)
+        set_initial_params(scf.cf, 20.0, 100.0, 20.0, 100.0, 0.2, 25.0)
         unlock_drone(scf.cf)
         print("start flying!")
         try:

@@ -10,7 +10,7 @@
 
 
 // dis_net 函数声明
-void dis_net(StateWhisker *statewhisker);
+void dis_net(StateWhisker *statewhisker, MLPParams* params_1, MLPParams* params_2);
 void init_mlp_params(MLPParams* params_1, MLPParams* params_2);
 void free_mlp_params(MLPParams* params_1, MLPParams* params_2);
 

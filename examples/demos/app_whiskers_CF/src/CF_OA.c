@@ -105,7 +105,7 @@ void appMain()
   // Intialize the setpoint structure
   setpoint_t setpoint;
 
-  DEBUG_PRINT("Waiting for activation ...\n");
+  printf("Waiting for activation ...\n");
 
   while(1) {
     vTaskDelay(M2T(20));

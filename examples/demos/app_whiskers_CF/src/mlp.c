@@ -14,14 +14,14 @@ void init_mlp_params(MLPParams* params_1, MLPParams* params_2) {
 
     // 初始化 params_1
     for (int i = 0; i < INPUT_SIZE; i++) {
-        params_1->mean[i] = ...; // 设置初始值
-        params_1->std[i] = ...;
+        params_1->mean[i] = 0; // 设置初始值
+        params_1->std[i] = 0;
     }
     for (int i = 0; i < HIDDEN_SIZE_1; i++) {
         for (int j = 0; j < INPUT_SIZE; j++) {
-            params_1->W1[i][j] = ...;
+            params_1->W1[i][j] = 0;
         }
-        params_1->b1[i] = ...;
+        params_1->b1[i] = 0;
     }
     // 初始化 params_2，类似 params_1
     // ...
@@ -118,7 +118,8 @@ void process_whisker(const float* input_data, const float* mean, const float* st
     mlp_inference(normalized_data, W1, b1, W2, b2, W3, b3, W4, b4, output);
 }
 
-void dis_net(StateWhisker *statewhisker, MLPParams* params_1, MLPParams* params_2) {
+void dis_net(StateWhisker *statewhisker, MLPParams* params_1, MLPParams* params_2) 
+{
     float input_data_1[INPUT_SIZE] = {statewhisker->whisker1_1, statewhisker->whisker1_2, statewhisker->whisker1_3};
     float input_data_2[INPUT_SIZE] = {statewhisker->whisker2_1, statewhisker->whisker2_2, statewhisker->whisker2_3};
 
