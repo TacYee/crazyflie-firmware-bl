@@ -133,7 +133,7 @@ void appMain()
         stateInnerLoop = FSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
                           whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
       }
-      if (statemlp == 1)
+      else if (statemlp == 1)
       {
         stateInnerLoop = MLPFSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
                           whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);

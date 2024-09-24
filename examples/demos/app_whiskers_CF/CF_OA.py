@@ -143,7 +143,7 @@ if __name__ == '__main__':
         filelogger=setup_logger()
         keep_flying = True
         time.sleep(3)
-        set_initial_params(scf.cf, 20.0, 100.0, 20.0, 100.0, 0.2, 25.0)
+        set_initial_params(scf.cf, 25.0, 100.0, 30.0, 120.0, 0.2, 25.0)
         unlock_drone(scf.cf)
         print("start flying!")
         try:

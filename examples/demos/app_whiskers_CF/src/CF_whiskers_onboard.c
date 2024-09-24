@@ -18,6 +18,8 @@ static float firstRun = false;
 static float firstRunPreprocess = false;
 static float maxSpeed = 0.2f;
 static float maxTurnRate = 25.0f;
+static float CF_THRESHOLD1 = 20.0f;
+static float CF_THRESHOLD2 = 20.0f;
 static float MIN_THRESHOLD1 = 25.0f;
 static float MAX_THRESHOLD1 = 100.0f;
 static float MIN_THRESHOLD2 = 25.0f;
@@ -217,7 +219,7 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
 
     case forward:
         ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
-        if (statewhisker->whisker1_1 > MIN_THRESHOLD1 || statewhisker->whisker2_1 > MIN_THRESHOLD2)
+        if (statewhisker->whisker1_1 > CF_THRESHOLD1 || statewhisker->whisker2_1 > CF_THRESHOLD2)
         {
             stateCF = transition(CF);
             printf("Obstacles encountered. Starting contour tracking.\n");
@@ -226,7 +228,7 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
 
     case CF:
         ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
-        if (statewhisker->whisker1_1 < MIN_THRESHOLD1 && statewhisker->whisker2_1 < MIN_THRESHOLD2)
+        if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
             stateCF = transition(forward);
             printf("Lose contact. Flyingforward.\n");
@@ -254,7 +256,13 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
         break;
 
     case CF:
-        if (MAX_THRESHOLD1 > statewhisker->whisker1_1 && statewhisker->whisker1_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->whisker2_1 && statewhisker->whisker2_1 > MIN_THRESHOLD2)
+        if (statewhisker->whisker1_1 < MIN_THRESHOLD1 && statewhisker->whisker2_1 < MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 1.0f * maxSpeed / 2.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = 0.0f;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->whisker1_1 && statewhisker->whisker1_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->whisker2_1 && statewhisker->whisker2_1 > MIN_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = -1.0f * maxSpeed;
@@ -330,7 +338,7 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
 
     case forward:
         ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
-        if (statewhisker->whisker1_1 > MIN_THRESHOLD1 || statewhisker->whisker2_1 > MIN_THRESHOLD2)
+        if (statewhisker->whisker1_1 > CF_THRESHOLD1 || statewhisker->whisker2_1 > CF_THRESHOLD2)
         {
             stateCF = transition(CF);
             printf("Obstacles encountered. Starting contour tracking.\n");
@@ -357,7 +365,7 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
             is_MLP_initialized = 1; // 标记已初始化
             printf("CF state initialized.\n");
         }
-        if (statewhisker->whisker1_1 < MIN_THRESHOLD1 && statewhisker->whisker2_1 < MIN_THRESHOLD2)
+        if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
             stateCF = transition(forward);
             printf("Lose contact. Flyingforward.\n");
@@ -393,7 +401,13 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
         break;
 
     case CF:
-        if (MAX_THRESHOLD1 > statewhisker->mlpoutput_1 && statewhisker->mlpoutput_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->mlpoutput_2 && statewhisker->mlpoutput_2 > MIN_THRESHOLD2)
+        if (statewhisker->mlpoutput_1 < MIN_THRESHOLD1 && statewhisker->mlpoutput_2 < MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = 0.0f;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->mlpoutput_1 && statewhisker->mlpoutput_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->mlpoutput_2 && statewhisker->mlpoutput_2 > MIN_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = -1.0f * maxSpeed;
