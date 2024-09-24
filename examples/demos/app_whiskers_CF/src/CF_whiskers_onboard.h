@@ -10,7 +10,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #define INPUT_SIZE 3
-#define OUTPUT_SIZE 1   // 输出层神经元数量
 
 typedef enum
 {
@@ -33,11 +32,13 @@ typedef struct{
     int preprocesscount;
     float zi[6][2];
     float b[3], a[3];
-    float mlpoutput_1[OUTPUT_SIZE];
-    float mlpoutput_2[OUTPUT_SIZE];  
+    float mlpoutput_1;
+    float mlpoutput_2;  
 } StateWhisker;
 
 StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
+            float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter);
+StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
             float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter);
 
 

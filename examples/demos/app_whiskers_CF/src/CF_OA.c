@@ -68,20 +68,21 @@ static void setHoverSetpoint(setpoint_t *setpoint, float vx, float vy, float z, 
 
 
 static int stateOuterLoop = 0;
+static int statemlp = 0;
 StateCF stateInnerLoop = hover;
 StateWhisker statewhisker;
 
 // Some wallfollowing parameters and logging
-float MIN_THRESHOLD1 = 20.0f;
-float MAX_THRESHOLD1 = 100.0f;
-float MIN_THRESHOLD2 = 20.0f;
-float MAX_THRESHOLD2 = 100.0f;
-float maxSpeed = 0.2f;
-float maxTurnRate = 25.0f;
+static float MIN_THRESHOLD1 = 20.0f;
+static float MAX_THRESHOLD1 = 100.0f;
+static float MIN_THRESHOLD2 = 20.0f;
+static float MAX_THRESHOLD2 = 100.0f;
+static float maxSpeed = 0.2f;
+static float maxTurnRate = 25.0f;
 
 float cmdVelX = 0.0f;
 float cmdVelY = 0.0f;
-float cmdHeight = 0.0f;
+static float cmdHeight = 0.0f;
 float cmdAngWDeg = 0.0f;
 
 
@@ -127,8 +128,16 @@ void appMain()
 
       // The wall-following state machine which outputs velocity commands
       float timeNow = usecTimestamp() / 1e6;
-      stateInnerLoop = FSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
+      if (statemlp == 0)
+      {
+        stateInnerLoop = FSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
                           whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
+      }
+      if (statemlp == 1)
+      {
+        stateInnerLoop = MLPFSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
+                          whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
+      }
 
       if (1) {
         setHoverSetpoint(&setpoint, cmdVelX, cmdVelY, cmdHeight, cmdAngWDeg);
@@ -153,6 +162,13 @@ void appMain()
 
 PARAM_GROUP_START(app)
 PARAM_ADD(PARAM_UINT8, stateOuterLoop, &stateOuterLoop)
+PARAM_ADD(PARAM_UINT8, statemlp, &statemlp)
+PARAM_ADD(PARAM_FLOAT, MIN_THRESHOLD1, &MIN_THRESHOLD1)
+PARAM_ADD(PARAM_FLOAT, MAX_THRESHOLD1, &MAX_THRESHOLD1)
+PARAM_ADD(PARAM_FLOAT, MIN_THRESHOLD2, &MIN_THRESHOLD2)
+PARAM_ADD(PARAM_FLOAT, MAX_THRESHOLD2, &MAX_THRESHOLD2)
+PARAM_ADD(PARAM_FLOAT, maxSpeed, &maxSpeed)
+PARAM_ADD(PARAM_FLOAT, maxTurnRate, &maxTurnRate)
 PARAM_GROUP_STOP(app)
 
 LOG_GROUP_START(app)
@@ -162,6 +178,8 @@ LOG_ADD(LOG_FLOAT, PreprocessWhisker1_3, &statewhisker.whisker1_3)
 LOG_ADD(LOG_FLOAT, PreprocessWhisker2_1, &statewhisker.whisker2_1)
 LOG_ADD(LOG_FLOAT, PreprocessWhisker2_2, &statewhisker.whisker2_2)
 LOG_ADD(LOG_FLOAT, PreprocessWhisker2_3, &statewhisker.whisker2_3)
+LOG_ADD(LOG_FLOAT, MlpOutput1, &statewhisker.mlpoutput_1)
+LOG_ADD(LOG_FLOAT, MlpOutput2, &statewhisker.mlpoutput_2)
 LOG_ADD(LOG_UINT8, stateInnerLoop, &stateInnerLoop)
 LOG_ADD(LOG_UINT8, stateOuterLoop, &stateOuterLoop)
 LOG_GROUP_STOP(app)
