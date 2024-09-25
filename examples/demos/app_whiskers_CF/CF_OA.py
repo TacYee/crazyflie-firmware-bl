@@ -22,6 +22,8 @@ def stop_drone(cf):
 
 def apply_mlp(cf):
     cf.param.set_value('app.statemlp', '1')
+def data_collection_mode(cf):
+    cf.param.set_value('app.statemlp', '2')
 
 def set_initial_params(cf, MIN_THRESHOLD1, MAX_THRESHOLD1, MIN_THRESHOLD2, MAX_THRESHOLD2, maxSpeed, maxTurnRate):
     cf.param.set_value('app.MIN_THRESHOLD1', str(MIN_THRESHOLD1)) 
@@ -95,7 +97,7 @@ def setup_logger():
     # flogger.enableConfig("attitude")
     # flogger.enableConfig("gyros")
     # flogger.enableConfig("acc")
-    # flogger.enableConfig("state")
+    flogger.enableConfig("state")
     flogger.enableConfig("whisker1")
     flogger.enableConfig("whisker2")
     flogger.enableConfig("PreWhisker1")
@@ -103,7 +105,8 @@ def setup_logger():
     flogger.enableConfig("StateOuterLoop")
     # flogger.enableConfig("motor")
     # flogger.enableConfig("otpos")
-    # flogger.enableConfig("orientation")
+    flogger.enableConfig("orientation")
+    flogger.enableConfig("laser")
     # flogger.enableConfig("WHISKER")
 
     # # UWB
@@ -143,7 +146,7 @@ if __name__ == '__main__':
         filelogger=setup_logger()
         keep_flying = True
         time.sleep(3)
-        set_initial_params(scf.cf, 30.0, 100.0, 50.0, 130.0, 0.2, 25.0)
+        set_initial_params(scf.cf, 30.0, 120.0, 30.0, 120.0, 0.2, 25.0)
         unlock_drone(scf.cf)
         print("start flying!")
         try:

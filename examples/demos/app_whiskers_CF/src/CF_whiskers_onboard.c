@@ -10,6 +10,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include "mlp.h"
+#include "debug.h"
 
 #define DATA_SIZE 100
 
@@ -29,6 +30,7 @@ static float StartTime;
 static const float waitForStartSeconds = 10.0f;
 static float stateStartTime;
 static int is_MLP_initialized = 0; // 0 表示未初始化, 1 表示已初始化
+static int CF_count = 150;
 MLPParams* params_1 = NULL;
 MLPParams* params_2 = NULL;
 
@@ -185,6 +187,7 @@ void FSMInit(float MIN_THRESHOLD1_input, float MAX_THRESHOLD1_input,
   maxTurnRate = maxTurnRate_input;
   firstRun = true;
   stateCF = initState;
+  CF_count = 150;
   DEBUG_PRINT("Initialize FSM parameters.\n");
 }
 
@@ -232,6 +235,9 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
             stateCF = transition(forward);
             DEBUG_PRINT("Lose contact. Flyingforward.\n");
         }
+        break;
+    default:
+        stateCF = transition(forward);
         break;
     }
 
@@ -379,6 +385,9 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
             DEBUG_PRINT("Exiting CF state, resources released.\n");
         }
         break;
+    default:
+        stateCF = transition(forward);
+        break;
     }
 
     // Handle state actions
@@ -443,6 +452,140 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = 0.0f;
         }
+        break;
+
+    default:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+    }
+
+    *cmdVelX = cmdVelXTemp;
+    *cmdVelY = cmdVelYTemp;
+    *cmdAngW = cmdAngWTemp;
+
+    return stateCF;
+}
+
+StateCF FSM_data(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
+            float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter)
+{
+    timeNow = timeOuter;
+
+    if (firstRun)
+    {
+        firstRun = false;
+        StartTime = timeNow;
+    }
+
+    // Handle state transitions
+    switch (stateCF)
+    {
+    case hover:
+        if (timeNow - StartTime >= waitForStartSeconds)
+        {
+            stateCF = transition(forward);
+            DEBUG_PRINT("Hover complete. Starting forward.\n");
+        }
+        break;
+
+    case forward:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        if (statewhisker->whisker1_1 > CF_THRESHOLD1 || statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {
+            stateCF = transition(CF);
+            DEBUG_PRINT("Obstacles encountered. Starting contour tracking.\n");
+        }
+        break;
+
+    case CF:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        CF_count--;
+        if (CF_count < 0)
+        {
+            stateCF = transition(backward);
+            DEBUG_PRINT("CF finished. Flyingbackward.\n");
+        }
+        if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
+        {
+            stateCF = transition(forward);
+            DEBUG_PRINT("Lose contact. Flyingforward.\n");
+        }
+        break;
+
+    case backward:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        break;
+    }
+
+    // Handle state actions
+    float cmdVelXTemp = 0.0f;
+    float cmdVelYTemp = 0.0f;
+    float cmdAngWTemp = 0.0f;
+
+    switch (stateCF)
+    {
+    case hover:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+
+    case forward:
+        cmdVelXTemp = maxSpeed;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+
+    case CF:
+        if (statewhisker->whisker1_1 < MIN_THRESHOLD1 && statewhisker->whisker2_1 < MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 1.0f * maxSpeed / 2.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = 0.0f;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->whisker1_1 && statewhisker->whisker1_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->whisker2_1 && statewhisker->whisker2_1 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = -1.0f * maxSpeed;
+            cmdAngWTemp = 0.0f;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->whisker1_1 && statewhisker->whisker1_1 > MIN_THRESHOLD1 && statewhisker->whisker2_1 < MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = maxTurnRate;
+        }
+        else if (statewhisker->whisker1_1 > MAX_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->whisker2_1 && statewhisker->whisker2_1 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = maxTurnRate;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->whisker1_1 && statewhisker->whisker1_1 > MIN_THRESHOLD1 && statewhisker->whisker2_1 > MAX_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = -1.0f * maxTurnRate;
+        }
+        else if (statewhisker->whisker1_1 < MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->whisker2_1 && statewhisker->whisker2_1 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = -1.0f * maxTurnRate;
+        }
+        else
+        {
+            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = 0.0f;
+        }
+        break;
+
+    case backward:
+        cmdVelXTemp = -1.0f * maxSpeed;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
         break;
 
     default:

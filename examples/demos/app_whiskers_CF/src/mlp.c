@@ -3,6 +3,7 @@
 #include <math.h>
 #include "CF_whiskers_onboard.h"
 #include "mlp.h"
+#include "debug.h"
 
 
 void init_mlp_params(MLPParams* params_1, MLPParams* params_2) 

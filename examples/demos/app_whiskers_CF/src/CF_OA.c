@@ -138,6 +138,11 @@ void appMain()
         stateInnerLoop = MLPFSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
                           whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
       }
+      else if (statemlp == 2)
+      {
+        stateInnerLoop = FSM_data(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
+                          whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
+      }
 
       if (1) {
         setHoverSetpoint(&setpoint, cmdVelX, cmdVelY, cmdHeight, cmdAngWDeg);

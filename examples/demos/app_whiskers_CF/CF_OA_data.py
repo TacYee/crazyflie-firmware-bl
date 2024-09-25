@@ -23,7 +23,7 @@ host_name = '192.168.209.81'
 # Valid options are: 'vicon', 'optitrack', 'optitrack_closed_source', 'qualisys', 'nokov', 'vrpn', 'motionanalysis'
 mocap_system_type = 'optitrack'
 
-body_name = "Chaoxiang"  # Replace with your actual body name
+body_name = "CF"  # Replace with your actual body name
 
 
 # True: send position and orientation; False: send position only
@@ -35,14 +35,8 @@ class MocapWrapper(Thread):
         super().__init__()
         self.body_name = body_name
         self.file_logger = file_logger
-        self.on_pose = None
+        self.on_pose = None  # 回调函数，当收到 pose 时调用
         self._stay_open = True
-        self.data_dict = {
-            "pos_x": 0.0, 
-            "pos_y": 0.0, 
-            "pos_z": 0.0, 
-            "yaw": 0.0  # 只保留 yaw
-        }
         self.start()
 
     def quaternion_to_yaw(self, x, y, z, w):
@@ -56,23 +50,17 @@ class MocapWrapper(Thread):
             mc.waitForNextFrame()
             for name, obj in mc.rigidBodies.items():
                 if name == self.body_name:
+                    pos = obj.position
+                    rot = obj.rotation
+                    yaw = self.quaternion_to_yaw(rot[0], rot[1], rot[2], rot[3])
                     if self.on_pose:
-                        pos = obj.position
-                        rot = obj.rotation
-                        # 计算 yaw
-                        yaw = self.quaternion_to_yaw(rot[0], rot[1], rot[2], rot[3])
-                        # 更新数据字典
-                        self.data_dict = {
+                        # 通过回调传递 mocap 数据
+                        self.on_pose({
                             "pos_x": pos[0],
                             "pos_y": pos[1],
                             "pos_z": pos[2],
                             "yaw": yaw
-                        }
-                    time.sleep(0.02)  # 20ms
-
-    def sync_mocap_data(self):
-        """将外部 mocap 数据同步到 FileLogger 中"""
-        self.file_logger.registerData("mocap", self.data_dict)
+                        })
 
 def unlock_drone(cf):
     cf.param.set_value('app.stateOuterLoop', '1')
@@ -82,6 +70,10 @@ def stop_drone(cf):
 
 def apply_mlp(cf):
     cf.param.set_value('app.statemlp', '1')
+
+def data_collection_mode(cf):
+    cf.param.set_value('app.statemlp', '2')
+
 
 def set_initial_params(cf, MIN_THRESHOLD1, MAX_THRESHOLD1, MIN_THRESHOLD2, MAX_THRESHOLD2, maxSpeed, maxTurnRate):
     cf.param.set_value('app.MIN_THRESHOLD1', str(MIN_THRESHOLD1)) 
@@ -154,18 +146,24 @@ def setup_logger():
     flogger.enableConfig("PreWhisker2")
     flogger.enableConfig("StateOuterLoop")
     flogger.enableConfig("orientation")
+    flogger.enableConfig("laser")
 
-    # 启动 mocap 数据同步
-    flogger.enableConfig("mocap")  # 启用 mocap 配置
+    # 启用 mocap 日志配置
+    flogger.enableConfig("mocap")
+
+    # 启动 Mocap 数据同步，并设置回调
     mocap_logger = MocapWrapper(body_name, flogger)
+
+    # 设置 mocap_logger 的回调函数，当获取到 pose 数据时注册到 FileLogger
+    def mocap_callback(data):
+        flogger.registerData("mocap", data)
+
+    # 通过 on_pose 属性设置回调
+    mocap_logger.on_pose = mocap_callback
 
     # 启动日志记录
     flogger.start()
-
-    # 每 20ms 同步一次 mocap 数据
-    while flogger.is_connected:
-        mocap_logger.sync_mocap_data()
-        time.sleep(0.02)  # 20ms
+    print("Logging started with callback.")
 
 if __name__ == '__main__':
 
@@ -173,7 +171,19 @@ if __name__ == '__main__':
     parser.add_argument("--fileroot", type=str, required=True)
     parser.add_argument("--logconfig", type=str, required=True)
     parser.add_argument("--filename", type=str, default=None)
+    parser.add_argument(
+        "--uwb", choices=["none", "twr", "tdoa"], type=str.lower, required=True
+    )
     args = vars(parser.parse_args())
+
+    parser.add_argument(
+        "--optitrack",
+        choices=["none", "logging", "state"],
+        type=str.lower,
+        default="none",
+    )
+
+    parser.add_argument("--optitrack_id", type=int, default=None)
     
     # Initialize the low-level drivers (don't list the debug drivers)
     cflib.crtp.init_drivers()
@@ -184,7 +194,8 @@ if __name__ == '__main__':
         filelogger=setup_logger()
         keep_flying = True
         time.sleep(3)
-        set_initial_params(scf.cf, 30.0, 100.0, 50.0, 130.0, 0.2, 25.0)
+        data_collection_mode(scf.cf)
+        set_initial_params(scf.cf, 30.0, 120.0, 30.0, 120.0, 0.2, 25.0)
         unlock_drone(scf.cf)
         print("start flying!")
         try:
