@@ -600,3 +600,152 @@ StateCF FSM_data(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
 
     return stateCF;
 }
+
+StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
+            float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter)
+{
+    timeNow = timeOuter;
+
+    if (firstRun)
+    {
+        firstRun = false;
+        StartTime = timeNow;
+    }
+
+    // Handle state transitions
+    switch (stateCF)
+    {
+    case hover:
+        if (timeNow - StartTime >= waitForStartSeconds)
+        {
+            stateCF = transition(forward);
+            DEBUG_PRINT("Hover complete. Starting forward.\n");
+        }
+        break;
+
+    case forward:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        if (statewhisker->whisker1_1 > CF_THRESHOLD1 || statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {
+            stateCF = transition(CF);
+            DEBUG_PRINT("Obstacles encountered. Starting contour tracking.\n");
+        }
+        break;
+
+    case CF:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        if (!is_MLP_initialized) 
+        {
+            // 进入 CF 状态时，动态分配 MLP 参数的内存
+            params_1 = (MLPParams*)malloc(sizeof(MLPParams));
+            params_2 = (MLPParams*)malloc(sizeof(MLPParams));
+
+            if (params_1 == NULL || params_2 == NULL) {
+                // 检查内存分配是否成功
+                DEBUG_PRINT("Memory allocation failed!\n");
+                exit(1); // 分配失败时退出程序，或采取其他错误处理措施
+            }
+
+            // 使用 mlp.c 中的初始化函数来初始化 MLP 参数
+            init_mlp_params(params_1, params_2);
+
+            is_MLP_initialized = 1; // 标记已初始化
+            DEBUG_PRINT("CF state initialized.\n");
+        }
+        dis_net(statewhisker, params_1, params_2);
+        KF_data_receive(statewhisker, kf1, kf2);
+        if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
+        {
+            stateCF = transition(forward);
+            DEBUG_PRINT("Lose contact. Flyingforward.\n");
+
+            // 离开 CF 状态时，释放动态分配的内存
+            free_mlp_params(params_1, params_2);
+            params_1 = NULL;
+            params_2 = NULL;
+
+            is_MLP_initialized = 0; // 重置标志，以便下次进入时重新初始化
+            DEBUG_PRINT("Exiting CF state, resources released.\n");
+        }
+        break;
+    default:
+        stateCF = transition(forward);
+        break;
+    }
+
+    // Handle state actions
+    float cmdVelXTemp = 0.0f;
+    float cmdVelYTemp = 0.0f;
+    float cmdAngWTemp = 0.0f;
+
+    switch (stateCF)
+    {
+    case hover:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+
+    case forward:
+        cmdVelXTemp = maxSpeed;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+
+    case CF:
+        if (statewhisker->mlpoutput_1 < MIN_THRESHOLD1 && statewhisker->mlpoutput_2 < MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = 0.0f;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->mlpoutput_1 && statewhisker->mlpoutput_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->mlpoutput_2 && statewhisker->mlpoutput_2 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = -1.0f * maxSpeed;
+            cmdAngWTemp = 0.0f;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->mlpoutput_1 && statewhisker->mlpoutput_1 > MIN_THRESHOLD1 && statewhisker->mlpoutput_2 < MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = maxTurnRate;
+        }
+        else if (statewhisker->mlpoutput_1 > MAX_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->mlpoutput_2 && statewhisker->mlpoutput_2 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = maxTurnRate;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->mlpoutput_1 && statewhisker->mlpoutput_1 > MIN_THRESHOLD1 && statewhisker->mlpoutput_2 > MAX_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = -1.0f * maxTurnRate;
+        }
+        else if (statewhisker->mlpoutput_1 < MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->mlpoutput_2 && statewhisker->mlpoutput_2 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = -1.0f * maxTurnRate;
+        }
+        else
+        {
+            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = 0.0f;
+        }
+        break;
+
+    default:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+    }
+
+    *cmdVelX = cmdVelXTemp;
+    *cmdVelY = cmdVelYTemp;
+    *cmdAngW = cmdAngWTemp;
+
+    return stateCF;
+}
