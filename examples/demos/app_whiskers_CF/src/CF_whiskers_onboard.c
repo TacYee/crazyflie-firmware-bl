@@ -30,9 +30,12 @@ static float StartTime;
 static const float waitForStartSeconds = 10.0f;
 static float stateStartTime;
 static int is_MLP_initialized = 0; // 0 表示未初始化, 1 表示已初始化
+static int is_KF_initialized = 0; // 0 表示未初始化, 1 表示已初始化
 static int CF_count = 150;
 MLPParams* params_1 = NULL;
 MLPParams* params_2 = NULL;
+static KalmanFilterWhisker kf1;
+static KalmanFilterWhisker kf2;
 
 static StateCF stateCF = hover;
 float timeNow = 0.0f;
@@ -368,7 +371,7 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
             init_mlp_params(params_1, params_2);
 
             is_MLP_initialized = 1; // 标记已初始化
-            DEBUG_PRINT("CF state initialized.\n");
+            DEBUG_PRINT("CF params initialized.\n");
         }
         dis_net(statewhisker, params_1, params_2);
         if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
@@ -634,26 +637,34 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
 
     case CF:
         ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
-        if (!is_MLP_initialized) 
+        if (!is_KF_initialized)
         {
-            // 进入 CF 状态时，动态分配 MLP 参数的内存
-            params_1 = (MLPParams*)malloc(sizeof(MLPParams));
-            params_2 = (MLPParams*)malloc(sizeof(MLPParams));
+            if (!is_MLP_initialized) 
+            {
+                // 进入 CF 状态时，动态分配 MLP 参数的内存
+                params_1 = (MLPParams*)malloc(sizeof(MLPParams));
+                params_2 = (MLPParams*)malloc(sizeof(MLPParams));
 
-            if (params_1 == NULL || params_2 == NULL) {
-                // 检查内存分配是否成功
-                DEBUG_PRINT("Memory allocation failed!\n");
-                exit(1); // 分配失败时退出程序，或采取其他错误处理措施
+                if (params_1 == NULL || params_2 == NULL) 
+                {
+                    // 检查内存分配是否成功
+                    DEBUG_PRINT("Memory allocation failed!\n");
+                    exit(1); // 分配失败时退出程序，或采取其他错误处理措施
+                }
+
+                // 使用 mlp.c 中的初始化函数来初始化 MLP 参数
+                init_mlp_params(params_1, params_2);
+
+                is_MLP_initialized = 1; // 标记已初始化
             }
-
-            // 使用 mlp.c 中的初始化函数来初始化 MLP 参数
-            init_mlp_params(params_1, params_2);
-
-            is_MLP_initialized = 1; // 标记已初始化
-            DEBUG_PRINT("CF state initialized.\n");
+            dis_net(statewhisker, params_1, params_2);
+            KF_init(&kf1, 0.0f, 1.0f, 0.1f, 0.1f);//here need a interface
+            KF_init(&kf2, 0.0f, 1.0f, 0.1f, 0.1f);
+            is_KF_initialized = 1; // 标记已初始化
+            statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
+            statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
+            DEBUG_PRINT("CF params initialized.\n");
         }
-        dis_net(statewhisker, params_1, params_2);
-        KF_data_receive(statewhisker, kf1, kf2);
         if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
             stateCF = transition(forward);
@@ -665,7 +676,13 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
             params_2 = NULL;
 
             is_MLP_initialized = 0; // 重置标志，以便下次进入时重新初始化
+            is_KF_initialized = 0;
             DEBUG_PRINT("Exiting CF state, resources released.\n");
+        }
+        else
+        {
+            dis_net(statewhisker, params_1, params_2);
+            KF_data_receive(statewhisker, &kf1, &kf2);
         }
         break;
     default:
@@ -693,37 +710,37 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
         break;
 
     case CF:
-        if (statewhisker->mlpoutput_1 < MIN_THRESHOLD1 && statewhisker->mlpoutput_2 < MIN_THRESHOLD2)
+        if (statewhisker->KFoutput_1 < MIN_THRESHOLD1 && statewhisker->KFoutput_2 < MIN_THRESHOLD2)
         {
             cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = 0.0f;
         }
-        else if (MAX_THRESHOLD1 > statewhisker->mlpoutput_1 && statewhisker->mlpoutput_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->mlpoutput_2 && statewhisker->mlpoutput_2 > MIN_THRESHOLD2)
+        else if (MAX_THRESHOLD1 > statewhisker->KFoutput_1 && statewhisker->KFoutput_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->KFoutput_2 && statewhisker->KFoutput_2 > MIN_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = -1.0f * maxSpeed;
             cmdAngWTemp = 0.0f;
         }
-        else if (MAX_THRESHOLD1 > statewhisker->mlpoutput_1 && statewhisker->mlpoutput_1 > MIN_THRESHOLD1 && statewhisker->mlpoutput_2 < MIN_THRESHOLD2)
+        else if (MAX_THRESHOLD1 > statewhisker->KFoutput_1 && statewhisker->KFoutput_1 > MIN_THRESHOLD1 && statewhisker->KFoutput_2 < MIN_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = maxTurnRate;
         }
-        else if (statewhisker->mlpoutput_1 > MAX_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->mlpoutput_2 && statewhisker->mlpoutput_2 > MIN_THRESHOLD2)
+        else if (statewhisker->KFoutput_1 > MAX_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->KFoutput_2 && statewhisker->KFoutput_2 > MIN_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = maxTurnRate;
         }
-        else if (MAX_THRESHOLD1 > statewhisker->mlpoutput_1 && statewhisker->mlpoutput_1 > MIN_THRESHOLD1 && statewhisker->mlpoutput_2 > MAX_THRESHOLD2)
+        else if (MAX_THRESHOLD1 > statewhisker->KFoutput_1 && statewhisker->KFoutput_1 > MIN_THRESHOLD1 && statewhisker->KFoutput_2 > MAX_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = -1.0f * maxTurnRate;
         }
-        else if (statewhisker->mlpoutput_1 < MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->mlpoutput_2 && statewhisker->mlpoutput_2 > MIN_THRESHOLD2)
+        else if (statewhisker->KFoutput_1 < MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->KFoutput_2 && statewhisker->KFoutput_2 > MIN_THRESHOLD2)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = 0.0f;

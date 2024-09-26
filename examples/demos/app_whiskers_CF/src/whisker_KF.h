@@ -9,7 +9,7 @@ typedef struct {
     float P;       // 协方差矩阵
     float Q;       // 过程噪声协方差矩阵
     float R;       // 测量噪声协方差矩阵
-} KalmanFilterFLAT2;
+} KalmanFilterWhisker;
 // 函数声明
 void KF_init(KalmanFilter *kf, float initial_state, float initial_covariance, float process_noise, float measurement_noise);
 void KF_predict(KalmanFilter *kf);

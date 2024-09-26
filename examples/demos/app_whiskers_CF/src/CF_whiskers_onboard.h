@@ -33,7 +33,9 @@ typedef struct{
     float zi[6][2];
     float b[3], a[3];
     float mlpoutput_1;
-    float mlpoutput_2;  
+    float mlpoutput_2;
+    float KFoutput_1;
+    float KFoutput_2;
 } StateWhisker;
 
 StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 

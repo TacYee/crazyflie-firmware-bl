@@ -3,9 +3,10 @@
 #include <math.h>
 
 // 初始化卡尔曼滤波器
-void KF_init(KalmanFilterFLAT2* kf, float initial_state, float initial_position[], 
-             float initial_yaw, float initial_covariance[], 
-             float process_noise[], float measurement_noise[]) {
+void KF_init(KalmanFilterWhisker* kf, float initial_state, float initial_position[], 
+             float initial_yaw, float initial_covariance, 
+             float process_noise, float measurement_noise) 
+{
     kf->x_pre = 234 - initial_state;
     kf->p_x_last = -(initial_position[1] * 1000);
     kf->p_y_last = initial_position[0] * 1000;
@@ -18,7 +19,8 @@ void KF_init(KalmanFilterFLAT2* kf, float initial_state, float initial_position[
 
 
 // 预测步骤
-void KF_predict(KalmanFilterFLAT2* kf, float position[], float yaw) {
+void KF_predict(KalmanFilterWhisker* kf, float position[], float yaw) 
+{
     float p_x = -(position[1] * 1000);
     float p_y = position[0] * 1000;
     float relative_distance = sqrtf(powf(p_x - kf->p_x_last, 2) + powf(p_y - kf->p_y_last, 2));
@@ -37,7 +39,7 @@ void KF_predict(KalmanFilterFLAT2* kf, float position[], float yaw) {
     kf->p_y_last = p_y;
 }
 
-void KF_update(KalmanFilterFLAT2* kf, float z) {
+void KF_update(KalmanFilterWhisker* kf, float z) {
     // 计算卡尔曼增益 K
     float P_plus_R = kf->P + kf->R; // 预测协方差加测量噪声
     float K = kf->P / P_plus_R; // 卡尔曼增益
@@ -51,11 +53,12 @@ void KF_update(KalmanFilterFLAT2* kf, float z) {
 
 
 // 获取当前状态估计
-float KF_get_estimate(KalmanFilterFLAT2* kf) {
+float KF_get_estimate(KalmanFilterWhisker* kf) 
+{
     return 234 - kf->x_pre;
 }
 
-void KF_data_receive(StateWhisker *statewhisker, KalmanFilterFLAT2 *kf1, KalmanFilterFLAT2 *kf2) {
+void KF_data_receive(StateWhisker *statewhisker, KalmanFilterWhisker *kf1, KalmanFilterWhisker *kf2) {
     // 进行预测
     KF_predict(kf1, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw);
     KF_predict(kf2, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw);
@@ -65,6 +68,6 @@ void KF_data_receive(StateWhisker *statewhisker, KalmanFilterFLAT2 *kf1, KalmanF
     KF_update(kf2, statewhisker->mlpoutput_2);
     
     // 将 KF 的估计值保存到 statewhisker
-    statewhisker->KFoutput1 = KF_get_estimate(kf1);
-    statewhisker->KFoutput2 = KF_get_estimate(kf2);
+    statewhisker->KFoutput_1 = KF_get_estimate(kf1);
+    statewhisker->KFoutput_2 = KF_get_estimate(kf2);
 }
