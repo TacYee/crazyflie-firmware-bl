@@ -50,10 +50,10 @@ class MocapWrapper(Thread):
             mc.waitForNextFrame()
             for name, obj in mc.rigidBodies.items():
                 if name == self.body_name:
-                    pos = obj.position
-                    rot = obj.rotation
-                    yaw = self.quaternion_to_yaw(rot[0], rot[1], rot[2], rot[3])
                     if self.on_pose:
+                        pos = obj.position
+                        rot = obj.rotation
+                        yaw = self.quaternion_to_yaw(rot.x, rot.y, rot.z, rot.w)
                         # 通过回调传递 mocap 数据
                         self.on_pose({
                             "pos_x": pos[0],
@@ -153,7 +153,7 @@ def setup_logger():
 
     # 启动 Mocap 数据同步，并设置回调
     mocap_logger = MocapWrapper(body_name, flogger)
-
+    
     # 设置 mocap_logger 的回调函数，当获取到 pose 数据时注册到 FileLogger
     def mocap_callback(data):
         flogger.registerData("mocap", data)
@@ -163,6 +163,7 @@ def setup_logger():
 
     # 启动日志记录
     flogger.start()
+    print(1)
     print("Logging started with callback.")
 
 if __name__ == '__main__':
@@ -171,19 +172,8 @@ if __name__ == '__main__':
     parser.add_argument("--fileroot", type=str, required=True)
     parser.add_argument("--logconfig", type=str, required=True)
     parser.add_argument("--filename", type=str, default=None)
-    parser.add_argument(
-        "--uwb", choices=["none", "twr", "tdoa"], type=str.lower, required=True
-    )
     args = vars(parser.parse_args())
 
-    parser.add_argument(
-        "--optitrack",
-        choices=["none", "logging", "state"],
-        type=str.lower,
-        default="none",
-    )
-
-    parser.add_argument("--optitrack_id", type=int, default=None)
     
     # Initialize the low-level drivers (don't list the debug drivers)
     cflib.crtp.init_drivers()

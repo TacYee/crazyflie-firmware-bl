@@ -36,6 +36,9 @@ typedef struct{
     float mlpoutput_2;
     float KFoutput_1;
     float KFoutput_2;
+    float p_x;
+    float p_y;
+    float yaw;
 } StateWhisker;
 
 StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
@@ -43,6 +46,8 @@ StateCF FSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, fl
 StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
             float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter);
 StateCF FSM_data(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
+            float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter);
+StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
             float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter);
 
 

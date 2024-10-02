@@ -75,6 +75,15 @@
         "headers": ["prewhisker2_1", "prewhisker2_2", "prewhisker2_3"]
     },
 
+    "MLPOUTPUT":{
+        "name": "MLPOUTPUT",
+        "type": "CF",
+        "period": 20,
+        "variables": ["app.MlpOutput1",
+                      "app.MlpOutput2"],
+        "headers": ["MLPwhisker1", "MLPwhisker2"]
+    },
+
     "StateOuterLoop":{
         "name": "StateOuterLoop",
         "type": "CF",

@@ -98,6 +98,11 @@ void appMain()
   logVarId_t idwhisker2_2 = logGetVarId("Whisker1", "Barometer2_2");
   logVarId_t idwhisker2_3 = logGetVarId("Whisker1", "Barometer2_3");
   logVarId_t idHeightEstimate = logGetVarId("stateEstimate", "z");
+
+  // Getting the Logging IDs of the state estimates
+  logVarId_t idStateYaw = logGetVarId("stateEstimate", "yaw");
+  logVarId_t idStateX = logGetVarId("stateEstimate", "x");
+  logVarId_t idStateY = logGetVarId("stateEstimate", "y");
   
 
   // Initialize the wall follower state machine
@@ -126,6 +131,9 @@ void appMain()
       float whisker2_1 = logGetUint(idwhisker2_1);
       float whisker2_2 = logGetUint(idwhisker2_2);
       float whisker2_3 = logGetUint(idwhisker2_3);
+      statewhisker.p_x = logGetUint(idStateX);
+      statewhisker.p_y = logGetUint(idStateY);
+      statewhisker.yaw = logGetUint(idStateYaw);
 
       // The wall-following state machine which outputs velocity commands
       float timeNow = usecTimestamp() / 1e6;

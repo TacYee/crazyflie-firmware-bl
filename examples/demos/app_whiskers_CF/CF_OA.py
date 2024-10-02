@@ -102,6 +102,7 @@ def setup_logger():
     flogger.enableConfig("whisker2")
     flogger.enableConfig("PreWhisker1")
     flogger.enableConfig("PreWhisker2")
+    flogger.enableConfig("MLPOUTPUT")
     flogger.enableConfig("StateOuterLoop")
     # flogger.enableConfig("motor")
     # flogger.enableConfig("otpos")
@@ -148,6 +149,7 @@ if __name__ == '__main__':
         time.sleep(3)
         set_initial_params(scf.cf, 30.0, 120.0, 30.0, 120.0, 0.2, 25.0)
         unlock_drone(scf.cf)
+        apply_mlp(scf.cf)
         print("start flying!")
         try:
             while keep_flying:

@@ -10,6 +10,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include "mlp.h"
+#include "whisker_KF.h"
 #include "debug.h"
 
 #define DATA_SIZE 100
@@ -36,6 +37,9 @@ MLPParams* params_1 = NULL;
 MLPParams* params_2 = NULL;
 static KalmanFilterWhisker kf1;
 static KalmanFilterWhisker kf2;
+static float process_noise = 0.1;
+static float measurement_noise = 1;
+static float initial_covariance = 0.1;
 
 static StateCF stateCF = hover;
 float timeNow = 0.0f;
@@ -373,8 +377,18 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
             is_MLP_initialized = 1; // 标记已初始化
             DEBUG_PRINT("CF params initialized.\n");
         }
-        dis_net(statewhisker, params_1, params_2);
-        if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
+        if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {   
+            dis_net(statewhisker, params_1, params_2);
+        }else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
+        {
+            dis_net(statewhisker, params_1, params_2);
+            statewhisker->mlpoutput_2 = 0.0f;
+        }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {
+            dis_net(statewhisker, params_1, params_2);
+            statewhisker->mlpoutput_1 = 0.0f; 
+        }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
             stateCF = transition(forward);
             DEBUG_PRINT("Lose contact. Flyingforward.\n");
@@ -383,7 +397,8 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
             free_mlp_params(params_1, params_2);
             params_1 = NULL;
             params_2 = NULL;
-
+            statewhisker->mlpoutput_1 = 0.0f; 
+            statewhisker->mlpoutput_2 = 0.0f;
             is_MLP_initialized = 0; // 重置标志，以便下次进入时重新初始化
             DEBUG_PRINT("Exiting CF state, resources released.\n");
         }
@@ -637,9 +652,7 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
 
     case CF:
         ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
-        if (!is_KF_initialized)
-        {
-            if (!is_MLP_initialized) 
+        if (!is_MLP_initialized) 
             {
                 // 进入 CF 状态时，动态分配 MLP 参数的内存
                 params_1 = (MLPParams*)malloc(sizeof(MLPParams));
@@ -657,15 +670,38 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
 
                 is_MLP_initialized = 1; // 标记已初始化
             }
+        if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {        
+            if (!is_KF_initialized)
+            {
+                dis_net(statewhisker, params_1, params_2);
+                KF_init(&kf1, statewhisker->mlpoutput_1, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
+                KF_init(&kf2, statewhisker->mlpoutput_2, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);
+                is_KF_initialized = 1; // 标记已初始化
+                statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
+                statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
+            }
+            else
+            {
+                dis_net(statewhisker, params_1, params_2);
+                KF_data_receive(statewhisker, &kf1, &kf2);
+            }
+
+        }else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
+        {
             dis_net(statewhisker, params_1, params_2);
-            KF_init(&kf1, 0.0f, 1.0f, 0.1f, 0.1f);//here need a interface
-            KF_init(&kf2, 0.0f, 1.0f, 0.1f, 0.1f);
-            is_KF_initialized = 1; // 标记已初始化
             statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
+            statewhisker->KFoutput_2 = 0.0f;
+            is_KF_initialized = 0;
+            DEBUG_PRINT("Whisker 2 loses contact. Reset KF.\n");
+        }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {
+            dis_net(statewhisker, params_1, params_2);
+            statewhisker->KFoutput_1 = 0.0f;
             statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
-            DEBUG_PRINT("CF params initialized.\n");
-        }
-        if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
+            is_KF_initialized = 0;
+            DEBUG_PRINT("Whisker 1 loses contact. Reset KF.\n");
+        }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
             stateCF = transition(forward);
             DEBUG_PRINT("Lose contact. Flyingforward.\n");
@@ -677,12 +713,9 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
 
             is_MLP_initialized = 0; // 重置标志，以便下次进入时重新初始化
             is_KF_initialized = 0;
+            statewhisker->KFoutput_1 = 0.0f;
+            statewhisker->KFoutput_2 = 0.0f;
             DEBUG_PRINT("Exiting CF state, resources released.\n");
-        }
-        else
-        {
-            dis_net(statewhisker, params_1, params_2);
-            KF_data_receive(statewhisker, &kf1, &kf2);
         }
         break;
     default:
