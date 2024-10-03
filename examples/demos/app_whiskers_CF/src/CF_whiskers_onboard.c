@@ -12,6 +12,7 @@
 #include "mlp.h"
 #include "whisker_KF.h"
 #include "debug.h"
+#include "log.h"
 
 #define DATA_SIZE 100
 

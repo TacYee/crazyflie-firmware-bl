@@ -228,8 +228,9 @@ void normalization(const float* data, const float* mean, const float* std, float
 
 void relu(const float* x, float* output, int size) 
 {
-    for (int i = 0; i < size; i++) {
-        output[i] = fmax(0, x[i]);
+    for (int i = 0; i < size; i++) 
+    {
+        output[i] = fmax(0.0f, x[i]);
     }
 }
 void mlp_inference(const float* input_data, 
@@ -240,38 +241,42 @@ void mlp_inference(const float* input_data,
                    float* output) 
 {
     arm_matrix_instance_f32 input, z1, z2, z3;
-    float z1_data[HIDDEN_SIZE_1], z2_data[HIDDEN_SIZE_2], z3_data[HIDDEN_SIZE_3];
+    float z1_data[HIDDEN_SIZE_1] = {0};  // Initialize all elements to 0
+    float z2_data[HIDDEN_SIZE_2] = {0};  // Initialize all elements to 0
+    float z3_data[HIDDEN_SIZE_3] = {0};
 
     // Initialize the matrices using 1D arrays (already flattened)
     arm_mat_init_f32(&input, INPUT_SIZE, 1, (float*)input_data);
     arm_mat_init_f32(&z1, HIDDEN_SIZE_1, 1, z1_data);
     arm_mat_init_f32(&z2, HIDDEN_SIZE_2, 1, z2_data);
     arm_mat_init_f32(&z3, HIDDEN_SIZE_3, 1, z3_data);
-
     // Forward pass (matrix multiplication and bias addition)
     arm_mat_mult_f32(W1, &input, &z1);
-    for (int i = 0; i < HIDDEN_SIZE_1; i++) {
+
+    for (int i = 0; i < HIDDEN_SIZE_1; i++) 
+    {
         z1_data[i] += b1[i];
     }
     relu(z1_data, z1_data, HIDDEN_SIZE_1);
-
     // Second layer forward pass
     arm_mat_mult_f32(W2, &z1, &z2);
-    for (int i = 0; i < HIDDEN_SIZE_2; i++) {
+    for (int i = 0; i < HIDDEN_SIZE_2; i++) 
+    {
         z2_data[i] += b2[i];
     }
     relu(z2_data, z2_data, HIDDEN_SIZE_2);
 
-    // Third layer forward pass
     arm_mat_mult_f32(W3, &z2, &z3);
-    for (int i = 0; i < HIDDEN_SIZE_3; i++) {
+    for (int i = 0; i < HIDDEN_SIZE_3; i++) 
+    {
         z3_data[i] += b3[i];
     }
     relu(z3_data, z3_data, HIDDEN_SIZE_3);
 
     // Output layer
-    *output = 0;
-    for (int i = 0; i < HIDDEN_SIZE_3; i++) {
+    *output = 0.0f;
+    for (int i = 0; i < HIDDEN_SIZE_3; i++) 
+    {  
         *output += z3_data[i] * W4[i];
     }
     *output += b4;

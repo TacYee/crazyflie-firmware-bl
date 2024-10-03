@@ -107,6 +107,8 @@ def setup_logger():
     # flogger.enableConfig("motor")
     # flogger.enableConfig("otpos")
     flogger.enableConfig("orientation")
+    flogger.enableConfig("STD")
+    flogger.enableConfig("MEAN")
     flogger.enableConfig("laser")
     # flogger.enableConfig("WHISKER")
 

@@ -84,6 +84,22 @@
         "headers": ["MLPwhisker1", "MLPwhisker2"]
     },
 
+    "MEAN":{
+        "name": "MEAN",
+        "type": "CF",
+        "period": 20,
+        "variables": ["app.mean"],
+        "headers": ["mean"]
+    },
+
+    "STD":{
+        "name": "STD",
+        "type": "CF",
+        "period": 20,
+        "variables": ["app.std"],
+        "headers": ["std"]
+    },
+
     "StateOuterLoop":{
         "name": "StateOuterLoop",
         "type": "CF",
