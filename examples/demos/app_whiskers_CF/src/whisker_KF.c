@@ -11,8 +11,8 @@ void KF_init(KalmanFilterWhisker* kf, float initial_state, float initial_positio
              float process_noise, float measurement_noise) 
 {
     kf->x_pre = 234 - initial_state;
-    kf->p_x_last = -(initial_position[1] * 1000);
-    kf->p_y_last = initial_position[0] * 1000;
+    kf->p_x_last = -(initial_position[0] * 1000);
+    kf->p_y_last = initial_position[1] * 1000;
     kf->theta_last = initial_yaw;
 
     kf->P = initial_covariance;
@@ -24,8 +24,8 @@ void KF_init(KalmanFilterWhisker* kf, float initial_state, float initial_positio
 // 预测步骤
 void KF_predict(KalmanFilterWhisker* kf, float position[], float yaw) 
 {
-    float p_x = -(position[1] * 1000);
-    float p_y = position[0] * 1000;
+    float p_x = -(position[0] * 1000);
+    float p_y = position[1] * 1000;
     float relative_distance = sqrtf(powf(p_x - kf->p_x_last, 2) + powf(p_y - kf->p_y_last, 2));
     float new_relative_rad = (yaw - kf->theta_last) * (M_PI_F / 180.0f); // 转换为弧度
 
@@ -69,8 +69,8 @@ void KF_data_receive(StateWhisker *statewhisker, KalmanFilterWhisker *kf1, Kalma
     KF_predict(kf2, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw);
     
     // 更新滤波器
-    KF_update(kf1, statewhisker->mlpoutput_1);
-    KF_update(kf2, statewhisker->mlpoutput_2);
+    KF_update(kf1, 234 - statewhisker->mlpoutput_1);
+    KF_update(kf2, 234 - statewhisker->mlpoutput_2);
     
     // 将 KF 的估计值保存到 statewhisker
     statewhisker->KFoutput_1 = KF_get_estimate(kf1);
