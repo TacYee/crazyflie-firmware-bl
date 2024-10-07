@@ -22,6 +22,8 @@ def stop_drone(cf):
 
 def apply_mlp(cf):
     cf.param.set_value('app.statemlp', '1')
+def apply_kf(cf):
+    cf.param.set_value('app.statekf', '1')
 def data_collection_mode(cf):
     cf.param.set_value('app.statemlp', '2')
 
@@ -107,10 +109,8 @@ def setup_logger():
     # flogger.enableConfig("motor")
     # flogger.enableConfig("otpos")
     flogger.enableConfig("orientation")
-    flogger.enableConfig("STD")
-    flogger.enableConfig("MEAN")
     flogger.enableConfig("laser")
-    # flogger.enableConfig("WHISKER")
+    flogger.enableConfig("KFOUTPUT")
 
     # # UWB
     # if args["uwb"] == "twr":
@@ -149,9 +149,10 @@ if __name__ == '__main__':
         filelogger=setup_logger()
         keep_flying = True
         time.sleep(3)
-        set_initial_params(scf.cf, 30.0, 120.0, 30.0, 120.0, 0.2, 25.0)
+        set_initial_params(scf.cf, 35.0, 80.0, 35.0, 80.0, 0.2, 25.0)
         unlock_drone(scf.cf)
         apply_mlp(scf.cf)
+        apply_kf(scf.cf)
         print("start flying!")
         try:
             while keep_flying:

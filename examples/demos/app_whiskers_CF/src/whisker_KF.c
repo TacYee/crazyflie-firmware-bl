@@ -11,8 +11,8 @@ void KF_init(KalmanFilterWhisker* kf, float initial_state, float initial_positio
              float process_noise, float measurement_noise) 
 {
     kf->x_pre = 234 - initial_state;
-    kf->p_x_last = -(initial_position[0] * 1000);
-    kf->p_y_last = initial_position[1] * 1000;
+    kf->p_x_last = initial_position[0] * 1000;
+    kf->p_y_last = -(initial_position[1] * 1000);
     kf->theta_last = initial_yaw;
 
     kf->P = initial_covariance;
@@ -24,13 +24,13 @@ void KF_init(KalmanFilterWhisker* kf, float initial_state, float initial_positio
 // 预测步骤
 void KF_predict(KalmanFilterWhisker* kf, float position[], float yaw) 
 {
-    float p_x = -(position[0] * 1000);
-    float p_y = position[1] * 1000;
-    float relative_distance = sqrtf(powf(p_x - kf->p_x_last, 2) + powf(p_y - kf->p_y_last, 2));
+    float p_x = position[0] * 1000;
+    float p_y = - (position[1] * 1000);
+    float relative_distance = sqrtf(powf(p_y - kf->p_y_last, 2) + powf(p_x - kf->p_x_last, 2));
     float new_relative_rad = (yaw - kf->theta_last) * (M_PI_F / 180.0f); // 转换为弧度
 
     // 预测状态
-    kf->x_pre = kf->x_pre + relative_distance * sinf(kf->theta_last * (M_PI_F / 180.0f) - atan2f((p_y - kf->p_y_last), (p_x - kf->p_x_last)));
+    kf->x_pre = kf->x_pre + relative_distance * sinf(kf->theta_last * (M_PI_F / 180.0f) - atan2f((p_x - kf->p_x_last), (p_y - kf->p_y_last)));
     kf->x_pre /= cosf(new_relative_rad);
     
     // 预测协方差矩阵

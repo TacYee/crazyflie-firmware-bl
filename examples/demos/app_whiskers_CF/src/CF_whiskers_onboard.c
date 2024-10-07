@@ -39,7 +39,7 @@ static KalmanFilterWhisker kf1;
 static KalmanFilterWhisker kf2;
 static float process_noise = 0.1;
 static float measurement_noise = 1;
-static float initial_covariance = 1;
+static float initial_covariance = 0.1;
 
 static StateCF stateCF = hover;
 float timeNow = 0.0f;

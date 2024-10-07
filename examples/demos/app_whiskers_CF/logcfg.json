@@ -84,21 +84,15 @@
         "headers": ["MLPwhisker1", "MLPwhisker2"]
     },
 
-    "MEAN":{
-        "name": "MEAN",
+    "KFOUTPUT":{
+        "name": "KFOUTPUT",
         "type": "CF",
         "period": 20,
-        "variables": ["app.mean"],
-        "headers": ["mean"]
+        "variables": ["app.KFMlpOutput1",
+                      "app.KFMlpOutput2"],
+        "headers": ["KFwhisker1","KFwhisker2"]
     },
 
-    "STD":{
-        "name": "STD",
-        "type": "CF",
-        "period": 20,
-        "variables": ["app.std"],
-        "headers": ["std"]
-    },
 
     "StateOuterLoop":{
         "name": "StateOuterLoop",
