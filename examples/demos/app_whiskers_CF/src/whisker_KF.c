@@ -4,6 +4,7 @@
 #include "CF_whiskers_onboard.h"
 #include "whisker_KF.h"
 #include "physicalConstants.h"
+#include "debug.h"
 
 // 初始化卡尔曼滤波器
 void KF_init(KalmanFilterWhisker* kf, float initial_state, float initial_position[], 

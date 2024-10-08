@@ -636,8 +636,8 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
             if (!is_KF_initialized)
             {
                 dis_net(statewhisker);
-                KF_init(&kf1, statewhisker->mlpoutput_1, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
-                KF_init(&kf2, statewhisker->mlpoutput_2, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);
+                KF_init(&kf1, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
+                KF_init(&kf2, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);
                 is_KF_initialized = 1; // 标记已初始化
                 statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
                 statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;

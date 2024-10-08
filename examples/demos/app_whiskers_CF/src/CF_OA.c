@@ -125,16 +125,15 @@ void appMain()
       cmdVelY = 0.0f;
       cmdAngWDeg = 0.0f;
 
-      float whisker1_1 = logGetUint(idwhisker1_1);
-      float whisker1_2 = logGetUint(idwhisker1_2);
-      float whisker1_3 = logGetUint(idwhisker1_3);
-      float whisker2_1 = logGetUint(idwhisker2_1);
-      float whisker2_2 = logGetUint(idwhisker2_2);
-      float whisker2_3 = logGetUint(idwhisker2_3);
-      statewhisker.p_x = logGetUint(idStateX);
-      statewhisker.p_y = logGetUint(idStateY);
-      statewhisker.yaw = logGetUint(idStateYaw);
-
+      float whisker1_1 = logGetFloat(idwhisker1_1);
+      float whisker1_2 = logGetFloat(idwhisker1_2);
+      float whisker1_3 = logGetFloat(idwhisker1_3);
+      float whisker2_1 = logGetFloat(idwhisker2_1);
+      float whisker2_2 = logGetFloat(idwhisker2_2);
+      float whisker2_3 = logGetFloat(idwhisker2_3);
+      statewhisker.p_x = logGetFloat(idStateX);
+      statewhisker.p_y = logGetFloat(idStateY);
+      statewhisker.yaw = logGetFloat(idStateYaw);
       // The wall-following state machine which outputs velocity commands
       float timeNow = usecTimestamp() / 1e6;
       if (statemlp == 0)
