@@ -84,7 +84,7 @@ void gp_fit(GaussianProcess *gp, const float *X_train, const float *y_train, int
         {
             gp->K_inv[i][j] = K_inv.pData[i * train_size + j];
         }
-    }
+    }   
 
     free(K_inv.pData); // 释放 K_inv 分配的内存
 }
@@ -94,13 +94,15 @@ void gp_predict(const GaussianProcess *gp, const float *X_test, int test_size, f
     float *K_trans = (float *)malloc(test_size * gp->train_size * sizeof(float)); // K(X_test, X_train)
     float *K_test = (float *)malloc(test_size * test_size * sizeof(float)); // K(X_test, X_test)
 
-    for (int i = 0; i < test_size; ++i) {
+    for (int i = 0; i < test_size; ++i) 
+    {
         for (int j = 0; j < gp->train_size; ++j) {
             K_trans[i * gp->train_size + j] = gp->kernel(&X_test[i * 2], &gp->X_train[j * 2], 2, 2.0f);
         }
     }
 
-    for (int i = 0; i < test_size; ++i) {
+    for (int i = 0; i < test_size; ++i) 
+    {
         for (int j = 0; j < test_size; ++j) {
             K_test[i * test_size + j] = gp->kernel(&X_test[i * 2], &X_test[j * 2], 2, 2.0f);
         }
@@ -110,18 +112,35 @@ void gp_predict(const GaussianProcess *gp, const float *X_test, int test_size, f
     for (int i = 0; i < test_size; ++i) 
     {
         y_pred[i] = 0.0f;
-        for (int j = 0; j < gp->train_size; ++j) {
-            y_pred[i] += K_trans[i * gp->train_size + j] * gp->K_inv[j][j]; // 使用逆矩阵的行 This is wrong, should input y_train
+        for (int j = 0; j < gp->train_size; ++j) 
+        {
+            float K_inv_yj = 0.0;
+            for (int k = 0; k < gp->train_size; k++) 
+            {
+                K_inv_yj += gp->K_inv[j][k] * gp->y_train[k];
+            }
+            // 这里应该乘上 y_train[j] 而不是使用 gp->K_inv[j][j]，也要用整个逆矩阵而不是对角线值
+            y_pred[i] += K_trans[i * gp->train_size + j] * K_inv_yj; 
         }
-    }
+}
 
     // 计算方差
     for (int i = 0; i < test_size; ++i) {
         float y_var = K_test[i * test_size + i]; // K(X_test, X_test)
-        for (int j = 0; j < gp->train_size; ++j) {
-            y_var -= K_trans[i * gp->train_size + j] * gp->K_inv[j][j] * K_trans[i * gp->train_size + j];
+        
+        // Subtract the contribution of the training data
+        for (int j = 0; j < gp->train_size; j++) {
+            float K_trans_ij = K_trans[i * gp->train_size + j]; // K_trans[i, j]
+            float temp_sum = 0.0;
+
+            // Calculate the contribution of K_inv * K_trans[j, :]
+            for (int k = 0; k < gp->train_size; k++) {
+                temp_sum += gp->K_inv[j][k] * K_trans[k * test_size + i]; // K_trans[k, i]
+            }
+
+            y_var -= K_trans_ij * temp_sum; // Subtract the contribution
         }
-        y_std[i] = sqrtf(y_var);
+        y_std[i] = sqrt(y_var);
     }
 
     // 释放动态分配的内存

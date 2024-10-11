@@ -27,6 +27,9 @@ def apply_kf(cf):
 def data_collection_mode(cf):
     cf.param.set_value('app.statemlp', '2')
 
+def exploration_mode(cf):
+    cf.param.set_value('app.stateexp', '1')
+
 def set_initial_params(cf, MIN_THRESHOLD1, MAX_THRESHOLD1, MIN_THRESHOLD2, MAX_THRESHOLD2, maxSpeed, maxTurnRate):
     cf.param.set_value('app.MIN_THRESHOLD1', str(MIN_THRESHOLD1)) 
     cf.param.set_value('app.MAX_THRESHOLD1', str(MAX_THRESHOLD1))
@@ -153,6 +156,7 @@ if __name__ == '__main__':
         unlock_drone(scf.cf)
         apply_mlp(scf.cf)
         apply_kf(scf.cf)
+        exploration_mode(scf.cf)
         print("start flying!")
         try:
             while keep_flying:

@@ -15,7 +15,8 @@ typedef enum
     forward,
     hover,
     CF,
-    backward
+    backward,
+    rotate
 } StateCF;
 
 
@@ -48,6 +49,8 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
 StateCF FSM_data(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
             float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter);
 StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
+            float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter);
+StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
             float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter);
 
 

@@ -33,11 +33,13 @@ static const float waitForStartSeconds = 10.0f;
 static float stateStartTime;
 static int is_KF_initialized = 0; // 0 表示未初始化, 1 表示已初始化
 static int CF_count = 150;
+static int backward_count = 150;
+static int rotate_count = 180;
 // static MLPParams params_1; // 第一个 MLP 参数
 // static MLPParams params_2; // 第二个 MLP 参数
 static KalmanFilterWhisker kf1;
 static KalmanFilterWhisker kf2;
-static float process_noise = 0.1;
+static float process_noise = 0.000001;
 static float measurement_noise = 1;
 static float initial_covariance = 0.1;
 
@@ -502,7 +504,7 @@ StateCF FSM_data(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
             stateCF = transition(backward);
             DEBUG_PRINT("CF finished. Flyingbackward.\n");
         }
-        if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
+        else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
             stateCF = transition(forward);
             DEBUG_PRINT("Lose contact. Flyingforward.\n");
@@ -511,6 +513,10 @@ StateCF FSM_data(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
 
     case backward:
         ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        break;
+
+    default:
+        stateCF = transition(forward);
         break;
     }
 
@@ -743,6 +749,209 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = 0.0f;
         }
+        break;
+
+    default:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+    }
+
+    *cmdVelX = cmdVelXTemp;
+    *cmdVelY = cmdVelYTemp;
+    *cmdAngW = cmdAngWTemp;
+
+    return stateCF;
+}
+
+
+StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
+            float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter)
+{
+    timeNow = timeOuter;
+
+    if (firstRun)
+    {
+        firstRun = false;
+        StartTime = timeNow;
+    }
+
+    // Handle state transitions
+    switch (stateCF)
+    {
+    case hover:
+        if (timeNow - StartTime >= waitForStartSeconds)
+        {
+            stateCF = transition(forward);
+            DEBUG_PRINT("Hover complete. Starting forward.\n");
+        }
+        break;
+
+    case forward:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        if (statewhisker->whisker1_1 > CF_THRESHOLD1 || statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {
+            stateCF = transition(CF);
+            DEBUG_PRINT("Obstacles encountered. Starting contour tracking.\n");
+        }
+        break;
+
+    case CF:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        CF_count--;
+        if (CF_count < 0)
+        {
+            stateCF = transition(backward);
+            DEBUG_PRINT("CF finished. Flyingbackward.\n");
+            backward_count = 150;
+        }
+        else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {        
+            if (!is_KF_initialized)
+            {
+                dis_net(statewhisker);
+                KF_init(&kf1, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
+                KF_init(&kf2, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);
+                is_KF_initialized = 1; // 标记已初始化
+                statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
+                statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
+            }
+            else
+            {
+                dis_net(statewhisker);
+                KF_data_receive(statewhisker, &kf1, &kf2);
+            }
+
+        }else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
+        {
+            dis_net(statewhisker);
+            statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
+            statewhisker->KFoutput_2 = 0.0f;
+            statewhisker->mlpoutput_2 = 0.0f;
+            is_KF_initialized = 0;
+            DEBUG_PRINT("Whisker 2 loses contact. Reset KF.\n");
+        }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {
+            dis_net(statewhisker);
+            statewhisker->KFoutput_1 = 0.0f;
+            statewhisker->mlpoutput_1 = 0.0f;
+            statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
+            is_KF_initialized = 0;
+            DEBUG_PRINT("Whisker 1 loses contact. Reset KF.\n");
+        }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
+        {
+            stateCF = transition(forward);
+            DEBUG_PRINT("Lose contact. Flyingforward.\n");
+            is_KF_initialized = 0;
+            statewhisker->KFoutput_1 = 0.0f;
+            statewhisker->KFoutput_2 = 0.0f;
+            statewhisker->mlpoutput_1 = 0.0f;
+            statewhisker->mlpoutput_1 = 0.0f;
+            DEBUG_PRINT("Exiting CF state, resources released.\n");
+        }
+        break;
+
+    case backward:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        backward_count--;
+        if (backward_count < 0)
+        {
+            stateCF = transition(rotate);
+            DEBUG_PRINT("Backward finished. Starting rotating.\n");
+            rotate_count = 180;
+        }
+        break;
+
+    case rotate:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        rotate_count--;
+        if (rotate_count <0)
+        {
+            stateCF = transition(forward);
+            DEBUG_PRINT("Rotate finished. Starting flying forward.\n");
+            CF_count = 150;
+        }
+        break;
+
+    default:
+        stateCF = transition(forward);
+        break;
+    }
+
+    // Handle state actions
+    float cmdVelXTemp = 0.0f;
+    float cmdVelYTemp = 0.0f;
+    float cmdAngWTemp = 0.0f;
+
+    switch (stateCF)
+    {
+    case hover:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+
+    case forward:
+        cmdVelXTemp = maxSpeed;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+
+    case CF:
+        if (statewhisker->KFoutput_1 < MIN_THRESHOLD1 && statewhisker->KFoutput_2 < MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = 0.0f;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->KFoutput_1 && statewhisker->KFoutput_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->KFoutput_2 && statewhisker->KFoutput_2 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = -1.0f * maxSpeed;
+            cmdAngWTemp = 0.0f;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->KFoutput_1 && statewhisker->KFoutput_1 > MIN_THRESHOLD1 && statewhisker->KFoutput_2 < MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = maxTurnRate;
+        }
+        else if (statewhisker->KFoutput_1 > MAX_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->KFoutput_2 && statewhisker->KFoutput_2 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = maxTurnRate;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->KFoutput_1 && statewhisker->KFoutput_1 > MIN_THRESHOLD1 && statewhisker->KFoutput_2 > MAX_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = -1.0f * maxTurnRate;
+        }
+        else if (statewhisker->KFoutput_1 < MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->KFoutput_2 && statewhisker->KFoutput_2 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = -1.0f * maxTurnRate;
+        }
+        else
+        {
+            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = 0.0f;
+        }
+        break;
+
+    case backward:
+        cmdVelXTemp = -1.0f * maxSpeed;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+
+    case rotate:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = -1.0f * maxTurnRate;
         break;
 
     default:

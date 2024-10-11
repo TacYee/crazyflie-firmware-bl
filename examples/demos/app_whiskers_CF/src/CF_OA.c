@@ -70,6 +70,7 @@ static void setHoverSetpoint(setpoint_t *setpoint, float vx, float vy, float z, 
 static int stateOuterLoop = 0;
 static int statemlp = 0;
 static int statekf = 0;
+static int stateexp = 0;
 StateCF stateInnerLoop = hover;
 StateWhisker statewhisker;
 
@@ -145,8 +146,17 @@ void appMain()
       {
         if (statekf == 1)
         {
-          stateInnerLoop = KFMLPFSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
+          if (stateexp == 1)
+          {
+            stateInnerLoop = KFMLPFSM_EXP(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
                             whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
+          }
+          else
+          {
+            stateInnerLoop = KFMLPFSM(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
+                            whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
+          }
+
         }
         else
         {
@@ -185,6 +195,7 @@ PARAM_GROUP_START(app)
 PARAM_ADD(PARAM_UINT8, stateOuterLoop, &stateOuterLoop)
 PARAM_ADD(PARAM_UINT8, statemlp, &statemlp)
 PARAM_ADD(PARAM_UINT8, statekf, &statekf)
+PARAM_ADD(PARAM_UINT8, stateexp, &stateexp)
 PARAM_ADD(PARAM_FLOAT, MIN_THRESHOLD1, &MIN_THRESHOLD1)
 PARAM_ADD(PARAM_FLOAT, MAX_THRESHOLD1, &MAX_THRESHOLD1)
 PARAM_ADD(PARAM_FLOAT, MIN_THRESHOLD2, &MIN_THRESHOLD2)
