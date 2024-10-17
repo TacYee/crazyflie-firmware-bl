@@ -1,20 +1,9 @@
+#include "GPIS.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
-#include <float.h>
-#include "arm_math.h"  // 引入ARM Math库
+#include "arm_math.h"
 
-#define MAX_TRAIN_SIZE 100  // 最大训练样本数量
-#define MAX_TEST_SIZE 100    // 最大测试样本数量
 
-typedef struct {
-    float *X_train; // 动态分配
-    float *y_train; // 动态分配
-    int train_size; // 训练样本数量
-    float **K_inv; // 动态分配的核矩阵的逆
-    float (*kernel)(const float *, const float *, int, float); // 核函数
-    float alpha;    // 噪声
-} GaussianProcess;
 
 // 高斯过程中的逆多二次核函数
 float inverse_multiquadric_kernel(const float *X, const float *Y, int dim, float c) 
@@ -91,8 +80,8 @@ void gp_fit(GaussianProcess *gp, const float *X_train, const float *y_train, int
 
 // 预测新的输入
 void gp_predict(const GaussianProcess *gp, const float *X_test, int test_size, float *y_pred, float *y_std) {
-    float *K_trans = (float *)malloc(test_size * gp->train_size * sizeof(float)); // K(X_test, X_train)
-    float *K_test = (float *)malloc(test_size * test_size * sizeof(float)); // K(X_test, X_test)
+    float K_trans[gp->train_size * test_size];  // K(X_test, X_train)
+    float K_test[test_size * test_size];
 
     for (int i = 0; i < test_size; ++i) 
     {
@@ -142,10 +131,6 @@ void gp_predict(const GaussianProcess *gp, const float *X_test, int test_size, f
         }
         y_std[i] = sqrt(y_var);
     }
-
-    // 释放动态分配的内存
-    free(K_trans);
-    free(K_test);
 }
 
 // 清理高斯过程

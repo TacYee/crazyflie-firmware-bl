@@ -16,7 +16,8 @@ typedef enum
     hover,
     CF,
     backward,
-    rotate
+    rotate,
+    GPIS
 } StateCF;
 
 

@@ -13,6 +13,7 @@
 #include "whisker_KF.h"
 #include "debug.h"
 #include "log.h"
+#include "GPIS.h"
 
 #define DATA_SIZE 100
 
@@ -35,6 +36,12 @@ static int is_KF_initialized = 0; // 0 表示未初始化, 1 表示已初始化
 static int CF_count = 150;
 static int backward_count = 150;
 static int rotate_count = 180;
+// 定义高斯过程模型和相关变量
+GaussianProcess gp_model;  // 高斯过程模型实例
+int current_train_index = 0;  // 当前已收集的训练数据索引
+float X_train[MAX_TRAIN_SIZE * 2];  // 训练输入数据，假设每个样本有两个特征
+float y_train[MAX_TRAIN_SIZE];      // 训练输出数据
+int is_gp_trained = 0;              // 标记 GP 是否已训练
 // static MLPParams params_1; // 第一个 MLP 参数
 // static MLPParams params_2; // 第二个 MLP 参数
 static KalmanFilterWhisker kf1;
@@ -815,11 +822,33 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
                 is_KF_initialized = 1; // 标记已初始化
                 statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
                 statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
+                if (current_train_index < MAX_TRAIN_SIZE && CF_count%30 == 0) 
+                {
+                    // 保存状态输入特征 (statewhisker->KFoutput_1)
+                    X_train[current_train_index * 2] = (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f) * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x * 1000;   // 第一个特征
+                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y * 1000) - (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f) * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+
+                    // 保存输出标签 y (设为 0)
+                    y_train[current_train_index] = 0.0f;
+                    current_train_index++;  // 更新训练数据索引
+                    DEBUG_PRINT("Surface Training sample saved. Current index: %d\n", current_train_index);
+                }
             }
             else
             {
                 dis_net(statewhisker);
                 KF_data_receive(statewhisker, &kf1, &kf2);
+                if (current_train_index < MAX_TRAIN_SIZE && CF_count % 30 == 0) 
+                {
+                    // 保存状态输入特征 (statewhisker->KFoutput_1)
+                    X_train[current_train_index * 2] = (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f) * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x * 1000;   // 第一个特征
+                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y * 1000) - (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f) * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+
+                    // 保存输出标签 y (设为 0)
+                    y_train[current_train_index] = 0.0f;
+                    current_train_index++;  // 更新训练数据索引
+                    DEBUG_PRINT("Surface Training sample saved. Current index: %d\n", current_train_index);
+                }
             }
 
         }else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
@@ -830,6 +859,17 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
             statewhisker->mlpoutput_2 = 0.0f;
             is_KF_initialized = 0;
             DEBUG_PRINT("Whisker 2 loses contact. Reset KF.\n");
+            if (current_train_index < MAX_TRAIN_SIZE && CF_count % 30 == 0) 
+                {
+                    // 保存状态输入特征 (statewhisker->KFoutput_1)
+                    X_train[current_train_index * 2] = (234.0f - statewhisker->KFoutput_1) * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x * 1000;   // 第一个特征
+                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y * 1000) - (234.0f - statewhisker->KFoutput_1) * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+
+                    // 保存输出标签 y (设为 0)
+                    y_train[current_train_index] = 0.0f;
+                    current_train_index++;  // 更新训练数据索引
+                    DEBUG_PRINT("Surface Training sample saved. Current index: %d\n", current_train_index);
+                }
         }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
         {
             dis_net(statewhisker);
@@ -838,8 +878,20 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
             statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
             is_KF_initialized = 0;
             DEBUG_PRINT("Whisker 1 loses contact. Reset KF.\n");
+            if (current_train_index < MAX_TRAIN_SIZE && CF_count % 30 == 0) 
+                {
+                    // 保存状态输入特征 (statewhisker->KFoutput_1)
+                    X_train[current_train_index * 2] = (234.0f - statewhisker->KFoutput_2) * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x * 1000;   // 第一个特征
+                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y * 1000) - (234.0f - statewhisker->KFoutput_2) * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+
+                    // 保存输出标签 y (设为 0)
+                    y_train[current_train_index] = 0.0f;
+                    current_train_index++;  // 更新训练数据索引
+                    DEBUG_PRINT("Surface Training sample saved. Current index: %d\n", current_train_index);
+                }
         }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
-        {
+        {   
+            CF_count++;
             stateCF = transition(forward);
             DEBUG_PRINT("Lose contact. Flyingforward.\n");
             is_KF_initialized = 0;
@@ -870,11 +922,59 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
             stateCF = transition(forward);
             DEBUG_PRINT("Rotate finished. Starting flying forward.\n");
             CF_count = 150;
+            if (current_train_index < MAX_TRAIN_SIZE) 
+                {
+                    // 保存状态输入特征 (statewhisker->KFoutput_1)
+                    X_train[current_train_index * 2] = statewhisker->p_x * 1000;   // 第一个特征
+                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y * 1000); // 第二个特征
+
+                    // 保存输出标签 y (设为 0)
+                    y_train[current_train_index] = -1.0f;
+                    current_train_index++;  // 更新训练数据索引
+                    DEBUG_PRINT("Inside Training sample saved. Current index: %d\n", current_train_index);
+                }
         }
         break;
     
     case GPIS:
-        
+        if (current_train_index > 0) 
+        {
+            // 调用 gp_fit 函数拟合模型，使用当前已收集的数据进行训练
+            gp_fit(&gp_model, X_train, y_train, current_train_index);
+            DEBUG_PRINT("GP model trained with %d training samples.\n", current_train_index);
+
+            int grid_size = 10; // 网格的大小
+            float x_min = -3.0f;
+            float x_max = 3.0f;
+            float y_min = -3.0f;
+            float y_max = 3.0f;
+            float x_step = (x_max - x_min) / (grid_size - 1);
+            float y_step = (y_max - y_min) / (grid_size - 1);
+
+            float X_test[2]; // 用于存储当前状态的输入
+            float y_pred[1];  // 预测值
+            float y_std[1];   // 预测标准
+
+            // 遍历网格
+            for (int i = 0; i < grid_size; ++i) 
+            {
+                for (int j = 0; j < grid_size; ++j) 
+                {
+                    // 生成网格点
+                    X_test[0] = x_min + i * x_step;  // x 坐标
+                    X_test[1] = y_min + j * y_step;  // y 坐标
+
+                    // 调用 gp_predict 函数进行预测
+                    gp_predict(&gp_model, X_test, 1, y_pred, y_std);  // 对每个网格点进行预测
+
+                    // 输出预测结果
+                    DEBUG_PRINT("GP prediction at (x = %f, y = %f): y_pred = %f, y_std = %f\n", 
+                            X_test[0], X_test[1], y_pred[0], y_std[0]);
+            }
+        }
+        break;
+    }
+
 
     default:
         stateCF = transition(forward);
@@ -955,6 +1055,12 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
         cmdVelXTemp = 0.0f;
         cmdVelYTemp = 0.0f;
         cmdAngWTemp = -1.0f * maxTurnRate;
+        break;
+
+    case GPIS:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
         break;
 
     default:
