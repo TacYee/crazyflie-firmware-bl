@@ -872,6 +872,9 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
             CF_count = 150;
         }
         break;
+    
+    case GPIS:
+        
 
     default:
         stateCF = transition(forward);
