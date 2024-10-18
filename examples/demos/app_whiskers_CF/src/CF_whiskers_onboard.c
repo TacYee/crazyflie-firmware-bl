@@ -951,29 +951,90 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
             float x_step = (x_max - x_min) / (grid_size - 1);
             float y_step = (y_max - y_min) / (grid_size - 1);
 
-            float X_test[2]; // 用于存储当前状态的输入
-            float y_pred[1];  // 预测值
-            float y_std[1];   // 预测标准
+            float *y_preds = (float *)malloc(grid_size * grid_size * sizeof(float));
+            float *y_stds = (float *)malloc(grid_size * grid_size * sizeof(float));
+            if (y_preds == NULL || y_stds == NULL) 
+            {
+                DEBUG_PRINT("Memory allocation failed!\n");
+                return;
+            }
 
-            // 遍历网格
+            // 生成网格并进行预测
+            float X_test[2];
+            float y_pred[1], y_std[1];
             for (int i = 0; i < grid_size; ++i) 
             {
                 for (int j = 0; j < grid_size; ++j) 
                 {
-                    // 生成网格点
-                    X_test[0] = x_min + i * x_step;  // x 坐标
-                    X_test[1] = y_min + j * y_step;  // y 坐标
+                    X_test[0] = x_min + i * x_step;
+                    X_test[1] = y_min + j * y_step;
+                    gp_predict(&gp_model, X_test, 1, y_pred, y_std);
 
-                    // 调用 gp_predict 函数进行预测
-                    gp_predict(&gp_model, X_test, 1, y_pred, y_std);  // 对每个网格点进行预测
-
-                    // 输出预测结果
-                    DEBUG_PRINT("GP prediction at (x = %f, y = %f): y_pred = %f, y_std = %f\n", 
-                            X_test[0], X_test[1], y_pred[0], y_std[0]);
+                    int idx = i * grid_size + j;
+                    y_preds[idx] = y_pred[0];
+                    y_stds[idx] = y_std[0];
+                }
             }
+
+            // 查找相邻点 y_pred 符号变化的边界，并进行插值
+            float *contour_points = (float *)malloc(grid_size * grid_size * 2 * sizeof(float)); // 存储轮廓点
+            int num_contour_points = 0; // 轮廓点的数量
+            for (int i = 0; i < grid_size - 1; ++i) 
+            {
+                for (int j = 0; j < grid_size - 1; ++j) 
+                {
+                    int idx_00 = i * grid_size + j;
+                    int idx_01 = i * grid_size + (j + 1);
+                    int idx_10 = (i + 1) * grid_size + j;
+                    int idx_11 = (i + 1) * grid_size + (j + 1);
+
+                    // 检查四个网格点之间是否有 y_pred = 0 的交叉点
+                    if (y_preds[idx_00] * y_preds[idx_01] < 0) 
+                    {
+                        // 插值x方向的交叉点
+                        float t = fabs(y_preds[idx_00]) / (fabs(y_preds[idx_00]) + fabs(y_preds[idx_01]));
+                        float x_zero = x_min + i * x_step + t * x_step;
+                        float y_zero = y_min + j * y_step;
+
+                        // 插值 y_std 值
+                        float y_std_zero = y_stds[idx_00] + t * (y_stds[idx_01] - y_stds[idx_00]);
+                        DEBUG_PRINT("y_pred = 0 at (x = %f, y = %f), interpolated y_std = %f\n", x_zero, y_zero, y_std_zero);
+                    }
+
+                    if (y_preds[idx_00] * y_preds[idx_10] < 0) 
+                    {
+                        // 插值y方向的交叉点
+                        float t = fabs(y_preds[idx_00]) / (fabs(y_preds[idx_00]) + fabs(y_preds[idx_10]));
+                        float x_zero = x_min + i * x_step;
+                        float y_zero = y_min + j * y_step + t * y_step;
+
+                        // 插值 y_std 值
+                        float y_std_zero = y_stds[idx_00] + t * (y_stds[idx_10] - y_stds[idx_00]);
+                        DEBUG_PRINT("y_pred = 0 at (x = %f, y = %f), interpolated y_std = %f\n", x_zero, y_zero, y_std_zero);
+
+                        // 保存轮廓点
+                        contour_points[num_contour_points * 2] = x_zero;
+                        contour_points[num_contour_points * 2 + 1] = y_zero;
+                        num_contour_points++;
+                    }
+                }
+            }
+            // 找到高曲率点
+            float *significant_points;
+            int num_significant_points;
+            find_high_curvature_clusters_with_normals(contour_points, num_contour_points, 0.9f, 0.5f, &significant_points, &num_significant_points);
+
+            // 对轮廓点应用惩罚
+            apply_penalty(contour_points, num_contour_points, y_stds, significant_points, num_significant_points, 0.4f);
+
+            // 清理内存
+            free(y_preds);
+            free(y_stds);
+            free(contour_points);
+            free(significant_points);
         }
+        gp_free(&gp_model);
         break;
-    }
 
 
     default:

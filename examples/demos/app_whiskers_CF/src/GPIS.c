@@ -146,32 +146,3 @@ void gp_free(GaussianProcess *gp) {
     }
     free(gp->K_inv); // 释放指向行的指针
 }
-
-int main() {
-    // 模拟一些训练数据
-    float X_train[] = {0.0f, 0.0f, 1.0f, 1.0f, 2.0f, 2.0f}; // 训练输入
-    float y_train[] = {1.0f, 2.0f, 3.0f}; // 训练输出
-    int train_size = 3; // 训练样本数量
-
-    GaussianProcess gp;
-    gp_fit(&gp, X_train, y_train, train_size);
-
-    // 准备测试数据
-    float X_test[] = {0.5f, 0.5f, 1.5f, 1.5f}; // 测试输入
-    int test_size = 2;
-    float y_pred[MAX_TEST_SIZE];
-    float y_std[MAX_TEST_SIZE];
-
-    // 进行预测
-    gp_predict(&gp, X_test, test_size, y_pred, y_std);
-
-    // 打印预测结果
-    for (int i = 0; i < test_size; ++i) {
-        printf("Prediction: %f, Std Dev: %f\n", y_pred[i], y_std[i]);
-    }
-
-    // 释放资源
-    gp_free(&gp);
-
-    return 0;
-}
