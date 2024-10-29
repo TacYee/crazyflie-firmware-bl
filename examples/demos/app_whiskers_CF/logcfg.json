@@ -93,6 +93,14 @@
         "headers": ["KFwhisker1","KFwhisker2"]
     },
 
+    "GPISLABEL":{
+        "name": "GPISLABEL",
+        "type": "CF",
+        "period": 20,
+        "variables": ["app.GpisLabel"],
+        "headers": ["gpislabel"]
+    },
+
 
     "StateOuterLoop":{
         "name": "StateOuterLoop",

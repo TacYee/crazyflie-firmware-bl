@@ -3,7 +3,7 @@
 #define GPIS_H
 
 #include <stdlib.h>
-#define MAX_TRAIN_SIZE 100  // 最大训练样本数量
+#define MAX_TRAIN_SIZE 30  // 最大训练样本数量
 #define MAX_TEST_SIZE 100    // 最大测试样本数量
 typedef struct {
     float *X_train;

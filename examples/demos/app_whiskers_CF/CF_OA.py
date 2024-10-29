@@ -115,6 +115,7 @@ def setup_logger():
     flogger.enableConfig("PreWhisker2")
     flogger.enableConfig("MLPOUTPUT")
     flogger.enableConfig("StateOuterLoop")
+    flogger.enableConfig("GPISLABEL")
     # flogger.enableConfig("motor")
     # flogger.enableConfig("otpos")
     flogger.enableConfig("orientation")

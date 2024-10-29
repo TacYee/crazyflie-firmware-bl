@@ -7,7 +7,7 @@
 #include "debug.h"
 
 
-float calculate_rotation_time(float p_x, float p_y, float max_x, float max_y, float current_yaw, float max_turn_rate) 
+float calculate_rotation_time(float p_x, float p_y, float max_x, float max_y, float current_yaw, float max_turn_rate, float* rotation_direction) 
 {
     // 计算向量 (p_x, p_y) 和 (max_x, max_y) 的单位向量
     float delta_x = max_x - p_x;
@@ -28,16 +28,20 @@ float calculate_rotation_time(float p_x, float p_y, float max_x, float max_y, fl
 
     // 确定旋转方向
     float rotation_time = 0.0f;
-    float rotation_direction = 1.0f;
-    if (angle_diff < 0) {
-        rotation_direction = -1.0f; // 顺时针 (速度为负)
-    } 
-    rotation_time = 50.0f * fabs(angle_diff) /max_turn_rate
+    if (angle_diff < 0) 
+    {
+        *rotation_direction = -1.0f; // 顺时针 (速度为负)
+    }
+    else
+    {
+        *rotation_direction = 1.0f;
+    }
+    rotation_time = 50.0f * fabsf(angle_diff) /max_turn_rate;
 
     // 输出夹角大小和旋转方向
-    DEBUG_PRINT("Angle difference: %f radians or %f degrees. Rotation time: %f\n", angle_diff, angle_diff * (180.0f / M_PI_F), rotation_time);
+    DEBUG_PRINT("Angle difference: %f radians. Rotation time: %f\n", (double)angle_diff, (double)rotation_time);
 
-    return rotation_time, rotation_direction; // 返回旋转速度，用于设置转动方向
+    return rotation_time; // 返回旋转速度，用于设置转动方向
 }
 
 // 计算两点间的欧几里得距离

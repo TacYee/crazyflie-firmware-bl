@@ -115,7 +115,8 @@ void appMain()
 
   DEBUG_PRINT("Waiting for activation ...\n");
 
-  while(1) {
+  while(1) 
+  {
     vTaskDelay(M2T(20));
     //DEBUG_PRINT(".");
     float heightEstimate = logGetFloat(idHeightEstimate);
@@ -153,6 +154,10 @@ void appMain()
             {
               stateInnerLoop = KFMLPFSM_EXP_GPIS(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
                             whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
+              if (stateInnerLoop == GPIS)
+              {
+                vTaskDelay(M2T(400));
+              }
             }
             else
             {
