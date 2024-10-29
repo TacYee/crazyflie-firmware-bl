@@ -1149,8 +1149,8 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             float x_step = (x_max - x_min) / (grid_size - 1);
             float y_step = (y_max - y_min) / (grid_size - 1);
 
-            float *y_preds = (float *)malloc(grid_size * grid_size * sizeof(float));
-            float *y_stds = (float *)malloc(grid_size * grid_size * sizeof(float));
+            float y_preds[grid_size * grid_size];
+            float y_stds[grid_size * grid_size];
             if (y_preds == NULL || y_stds == NULL) 
             {
                 DEBUG_PRINT("Memory allocation failed!\n");
@@ -1174,12 +1174,12 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             }
 
             // 查找相邻点 y_pred 符号变化的边界，并进行插值
-            float *contour_points = (float *)malloc(grid_size * grid_size * 2 * sizeof(float)); // 存储轮廓点
-            float *y_contour_stds = (float *)malloc(grid_size * grid_size * sizeof(float)); // 存储轮廓点对应的 y_std 值
+            float contour_points[grid_size * grid_size]; // 存储轮廓点
+            float y_contour_stds[grid_size * grid_size / 2]; // 存储轮廓点对应的 y_std 值
             int num_contour_points = 0; // 轮廓点的数量
-            for (int i = 0; i < grid_size - 1; ++i) 
+            for (int i = 0; i < (grid_size - 1); ++i) 
             {
-                for (int j = 0; j < grid_size - 1; ++j) 
+                for (int j = 0; j < (grid_size - 1); ++j) 
                 {
                     int idx_00 = i * grid_size + j;
                     int idx_01 = i * grid_size + (j + 1);
@@ -1252,10 +1252,6 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
 
             rotate_count = calculate_rotation_time(statewhisker->p_x, -statewhisker->p_y, max_x, -max_y, statewhisker->yaw, maxTurnRate, &direction);
             // 清理内存
-            free(y_preds);
-            free(y_stds);
-            free(contour_points);
-            free(y_contour_stds);
             free(significant_points);
         }
         gp_free(&gp_model);
