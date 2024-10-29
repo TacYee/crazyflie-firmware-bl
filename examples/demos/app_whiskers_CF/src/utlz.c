@@ -3,16 +3,52 @@
 #include <math.h>
 #include <float.h>
 #include "utlz.h"
+#include "physicalConstants.h"
+#include "debug.h"
 
-#define PI 3.14159265358979323846
+
+float calculate_rotation_time(float p_x, float p_y, float max_x, float max_y, float current_yaw, float max_turn_rate) 
+{
+    // 计算向量 (p_x, p_y) 和 (max_x, max_y) 的单位向量
+    float delta_x = max_x - p_x;
+    float delta_y = max_y - p_y;
+
+    // 计算目标向量与x轴的角度 (以弧度为单位)
+    float target_angle = atan2(delta_y, delta_x);
+
+    // 将当前的 yaw 转换为弧度
+    float current_yaw_rad = current_yaw * (M_PI_F / 180.0f);
+
+    // 计算 yaw 与目标角度之间的夹角
+    float angle_diff = target_angle - current_yaw_rad;
+
+    // 将角度标准化到 -π 到 π 之间
+    while (angle_diff > M_PI_F) angle_diff -= 2 * M_PI_F;
+    while (angle_diff < -M_PI_F) angle_diff += 2 * M_PI_F;
+
+    // 确定旋转方向
+    float rotation_time = 0.0f;
+    float rotation_direction = 1.0f;
+    if (angle_diff < 0) {
+        rotation_direction = -1.0f; // 顺时针 (速度为负)
+    } 
+    rotation_time = 50.0f * fabs(angle_diff) /max_turn_rate
+
+    // 输出夹角大小和旋转方向
+    DEBUG_PRINT("Angle difference: %f radians or %f degrees. Rotation time: %f\n", angle_diff, angle_diff * (180.0f / M_PI_F), rotation_time);
+
+    return rotation_time, rotation_direction; // 返回旋转速度，用于设置转动方向
+}
 
 // 计算两点间的欧几里得距离
-float euclidean_distance(float *p1, float *p2) {
+float euclidean_distance(float *p1, float *p2) 
+{
     return sqrt(pow(p1[0] - p2[0], 2) + pow(p1[1] - p2[1], 2));
 }
 
 
-void compute_normal(float *p1, float *p2, float *normal) {
+void compute_normal(float *p1, float *p2, float *normal) 
+{
     // 法向量为两个点之间的垂直向量，长度未归一化
     float dx = p2[0] - p1[0];
     float dy = p2[1] - p1[1];
@@ -92,7 +128,8 @@ void find_high_curvature_clusters_with_normals(float *points, int num_points, fl
             }
         } else {
             // 如果当前簇不为空，结束当前簇并计算质心
-            if (cluster_size > 0) {
+            if (cluster_size > 0) 
+            {
                 float centroid[2];
                 compute_centroid(current_cluster, cluster_size, centroid);
 
@@ -106,7 +143,8 @@ void find_high_curvature_clusters_with_normals(float *points, int num_points, fl
     }
 
     // 如果最后还有未处理的簇
-    if (cluster_size > 0) {
+    if (cluster_size > 0) 
+    {
         float centroid[2];
         compute_centroid(current_cluster, cluster_size, centroid);
 
@@ -119,10 +157,12 @@ void find_high_curvature_clusters_with_normals(float *points, int num_points, fl
 }
 
 // 计算惩罚函数
-float calculate_penalty(float *point, float *significant_points, int num_significant_points, float c) {
+float calculate_penalty(float *point, float *significant_points, int num_significant_points, float c) 
+{
     float min_distance = FLT_MAX;
 
-    for (int i = 0; i < num_significant_points; ++i) {
+    for (int i = 0; i < num_significant_points; ++i) 
+    {
         float *sig_point = &significant_points[i * 2];
         float distance = euclidean_distance(point, sig_point);
         if (distance < min_distance) {
@@ -134,8 +174,10 @@ float calculate_penalty(float *point, float *significant_points, int num_signifi
 }
 
 // 对轮廓点应用惩罚
-void apply_penalty(float *contour_points, int num_contour_points, float *y_stds, float *significant_points, int num_significant_points, float c) {
-    for (int i = 0; i < num_contour_points; ++i) {
+void apply_penalty(float *contour_points, int num_contour_points, float *y_stds, float *significant_points, int num_significant_points, float c) 
+{
+    for (int i = 0; i < num_contour_points; ++i) 
+    {
         float *point = &contour_points[i * 2];
         float penalty = calculate_penalty(point, significant_points, num_significant_points, c);
         y_stds[i] += penalty;

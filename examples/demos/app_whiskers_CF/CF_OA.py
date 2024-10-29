@@ -30,6 +30,12 @@ def data_collection_mode(cf):
 def exploration_mode(cf):
     cf.param.set_value('app.stateexp', '1')
 
+def exploration_mode(cf):
+    cf.param.set_value('app.stateexp', '1')
+
+def exploration_mode_gpis(cf):
+    cf.param.set_value('app.stategpis', '1')
+
 def set_initial_params(cf, MIN_THRESHOLD1, MAX_THRESHOLD1, MIN_THRESHOLD2, MAX_THRESHOLD2, maxSpeed, maxTurnRate):
     cf.param.set_value('app.MIN_THRESHOLD1', str(MIN_THRESHOLD1)) 
     cf.param.set_value('app.MAX_THRESHOLD1', str(MAX_THRESHOLD1))
@@ -157,6 +163,7 @@ if __name__ == '__main__':
         apply_mlp(scf.cf)
         apply_kf(scf.cf)
         exploration_mode(scf.cf)
+        exploration_mode_gpis(scf.cf)
         print("start flying!")
         try:
             while keep_flying:
@@ -165,10 +172,9 @@ if __name__ == '__main__':
                     print("Stop command received!")
                     keep_flying = False
 
-            # 当 keep_flying 变为 False，开始执行停止逻辑
             while not keep_flying:
-                stop_drone(scf.cf)  # 不断调用 stop_drone 函数
+                stop_drone(scf.cf) 
                 print("Stopping the drone...")
-                time.sleep(0.1)  # 给些延时，避免过度调用
+                time.sleep(0.1) 
         except KeyboardInterrupt:
             print('Demo terminated!')

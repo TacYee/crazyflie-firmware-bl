@@ -14,6 +14,8 @@
 #include "debug.h"
 #include "log.h"
 #include "GPIS.h"
+#include "physicalConstants.h"
+#include "utlz.h"
 
 #define DATA_SIZE 100
 
@@ -21,6 +23,7 @@ static float firstRun = false;
 static float firstRunPreprocess = false;
 static float maxSpeed = 0.2f;
 static float maxTurnRate = 25.0f;
+static float direction = 1.0f;
 static float CF_THRESHOLD1 = 20.0f;
 static float CF_THRESHOLD2 = 20.0f;
 static float MIN_THRESHOLD1 = 25.0f;
@@ -36,19 +39,18 @@ static int is_KF_initialized = 0; // 0 表示未初始化, 1 表示已初始化
 static int CF_count = 150;
 static int backward_count = 150;
 static int rotate_count = 180;
+static int rotation_time = 1;
+int8_t GPIS_label = 0;
 // 定义高斯过程模型和相关变量
 GaussianProcess gp_model;  // 高斯过程模型实例
-int current_train_index = 0;  // 当前已收集的训练数据索引
+static int current_train_index = 0;  // 当前已收集的训练数据索引
 float X_train[MAX_TRAIN_SIZE * 2];  // 训练输入数据，假设每个样本有两个特征
 float y_train[MAX_TRAIN_SIZE];      // 训练输出数据
-int is_gp_trained = 0;              // 标记 GP 是否已训练
-// static MLPParams params_1; // 第一个 MLP 参数
-// static MLPParams params_2; // 第二个 MLP 参数
 static KalmanFilterWhisker kf1;
 static KalmanFilterWhisker kf2;
 static float process_noise = 0.000001;
 static float measurement_noise = 1;
-static float initial_covariance = 0.1;
+static float initial_covariance = 0.0001;
 
 static StateCF stateCF = hover;
 float timeNow = 0.0f;
@@ -771,12 +773,196 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
     return stateCF;
 }
 
-
 StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
             float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter)
 {
     timeNow = timeOuter;
+    if (firstRun)
+    {
+        firstRun = false;
+        StartTime = timeNow;
+    }
+    // Handle state transitions
+    switch (stateCF)
+    {
+    case hover:
+        if (timeNow - StartTime >= waitForStartSeconds)
+        {
+            stateCF = transition(forward);
+            DEBUG_PRINT("Hover complete. Starting forward.\n");
+        }
+        break;
+    case forward:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        if (statewhisker->whisker1_1 > CF_THRESHOLD1 || statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {
+            stateCF = transition(CF);
+            DEBUG_PRINT("Obstacles encountered. Starting contour tracking.\n");
+        }
+        break;
+    case CF:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        CF_count--;
+        if (CF_count < 0)
+        {
+            stateCF = transition(backward);
+            DEBUG_PRINT("CF finished. Flyingbackward.\n");
+            backward_count = 150;
+        }
+        else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {        
+            if (!is_KF_initialized)
+            {
+                dis_net(statewhisker);
+                KF_init(&kf1, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
+                KF_init(&kf2, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);
+                is_KF_initialized = 1; // 标记已初始化
+                statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
+                statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
+            }
+            else
+            {
+                dis_net(statewhisker);
+                KF_data_receive(statewhisker, &kf1, &kf2);
+            }
+        }else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
+        {
+            dis_net(statewhisker);
+            statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
+            statewhisker->KFoutput_2 = 0.0f;
+            statewhisker->mlpoutput_2 = 0.0f;
+            is_KF_initialized = 0;
+            DEBUG_PRINT("Whisker 2 loses contact. Reset KF.\n");
+        }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
+        {
+            dis_net(statewhisker);
+            statewhisker->KFoutput_1 = 0.0f;
+            statewhisker->mlpoutput_1 = 0.0f;
+            statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
+            is_KF_initialized = 0;
+            DEBUG_PRINT("Whisker 1 loses contact. Reset KF.\n");
+        }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
+        {
+            stateCF = transition(forward);
+            DEBUG_PRINT("Lose contact. Flyingforward.\n");
+            is_KF_initialized = 0;
+            statewhisker->KFoutput_1 = 0.0f;
+            statewhisker->KFoutput_2 = 0.0f;
+            statewhisker->mlpoutput_1 = 0.0f;
+            statewhisker->mlpoutput_1 = 0.0f;
+            DEBUG_PRINT("Exiting CF state, resources released.\n");
+        }
+        break;
+    case backward:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        backward_count--;
+        if (backward_count < 0)
+        {
+            stateCF = transition(rotate);
+            DEBUG_PRINT("Backward finished. Starting rotating.\n");
+            rotate_count = 180;
+        }
+        break;
+    case rotate:
+        ProcessDataReceived(statewhisker, whisker1_1, whisker1_2, whisker1_3, whisker2_1, whisker2_2, whisker2_3);
+        rotate_count--;
+        if (rotate_count <0)
+        {
+            stateCF = transition(forward);
+            DEBUG_PRINT("Rotate finished. Starting flying forward.\n");
+            CF_count = 150;
+        }
+        break;
+    default:
+        stateCF = transition(forward);
+        break;
+    }
+    // Handle state actions
+    float cmdVelXTemp = 0.0f;
+    float cmdVelYTemp = 0.0f;
+    float cmdAngWTemp = 0.0f;
+    switch (stateCF)
+    {
+    case hover:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+    case forward:
+        cmdVelXTemp = maxSpeed;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+    case CF:
+        if (statewhisker->KFoutput_1 < MIN_THRESHOLD1 && statewhisker->KFoutput_2 < MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = 0.0f;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->KFoutput_1 && statewhisker->KFoutput_1 > MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->KFoutput_2 && statewhisker->KFoutput_2 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = -1.0f * maxSpeed;
+            cmdAngWTemp = 0.0f;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->KFoutput_1 && statewhisker->KFoutput_1 > MIN_THRESHOLD1 && statewhisker->KFoutput_2 < MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = maxTurnRate;
+        }
+        else if (statewhisker->KFoutput_1 > MAX_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->KFoutput_2 && statewhisker->KFoutput_2 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = maxTurnRate;
+        }
+        else if (MAX_THRESHOLD1 > statewhisker->KFoutput_1 && statewhisker->KFoutput_1 > MIN_THRESHOLD1 && statewhisker->KFoutput_2 > MAX_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = -1.0f * maxTurnRate;
+        }
+        else if (statewhisker->KFoutput_1 < MIN_THRESHOLD1 && MAX_THRESHOLD2 > statewhisker->KFoutput_2 && statewhisker->KFoutput_2 > MIN_THRESHOLD2)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = -1.0f * maxTurnRate;
+        }
+        else
+        {
+            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = 0.0f;
+        }
+        break;
+    case backward:
+        cmdVelXTemp = -1.0f * maxSpeed;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+        break;
+    case rotate:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = -1.0f * maxTurnRate;
+        break;
+    default:
+        cmdVelXTemp = 0.0f;
+        cmdVelYTemp = 0.0f;
+        cmdAngWTemp = 0.0f;
+    }
+    *cmdVelX = cmdVelXTemp;
+    *cmdVelY = cmdVelYTemp;
+    *cmdAngW = cmdAngWTemp;
+    return stateCF;
+}
 
+StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1, float whisker1_2, float whisker1_3, 
+            float whisker2_1, float whisker2_2, float whisker2_3, StateWhisker *statewhisker, float timeOuter)
+{
+    timeNow = timeOuter;
+    GPIS_label = 2;
     if (firstRun)
     {
         firstRun = false;
@@ -847,6 +1033,7 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
                     current_train_index++;  // 更新训练数据索引
+                    GPIS_label = 0;
                     DEBUG_PRINT("Surface Training sample saved. Current index: %d\n", current_train_index);
                 }
             }
@@ -931,13 +1118,19 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = -1.0f;
                     current_train_index++;  // 更新训练数据索引
+                    GPIS_label = -1;
                     DEBUG_PRINT("Inside Training sample saved. Current index: %d\n", current_train_index);
                 }
         }
         break;
     
     case GPIS:
-        if (current_train_index > 0) 
+        if (rotation_time < 4)
+        {
+            stateCF = transition(rotate);
+        }
+
+        else if (current_train_index > 0) 
         {
             // 调用 gp_fit 函数拟合模型，使用当前已收集的数据进行训练
             gp_fit(&gp_model, X_train, y_train, current_train_index);
@@ -978,6 +1171,7 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
 
             // 查找相邻点 y_pred 符号变化的边界，并进行插值
             float *contour_points = (float *)malloc(grid_size * grid_size * 2 * sizeof(float)); // 存储轮廓点
+            float *y_contour_stds = (float *)malloc(grid_size * grid_size * sizeof(float)); // 存储轮廓点对应的 y_std 值
             int num_contour_points = 0; // 轮廓点的数量
             for (int i = 0; i < grid_size - 1; ++i) 
             {
@@ -1015,6 +1209,7 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
                         // 保存轮廓点
                         contour_points[num_contour_points * 2] = x_zero;
                         contour_points[num_contour_points * 2 + 1] = y_zero;
+                        y_contour_stds[num_contour_points] = y_std_zero;
                         num_contour_points++;
                     }
                 }
@@ -1026,14 +1221,39 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
 
             // 对轮廓点应用惩罚
             apply_penalty(contour_points, num_contour_points, y_stds, significant_points, num_significant_points, 0.4f);
+            
+            // 寻找最大 y_std 点
+            float max_y_std = -FLT_MAX; // 初始化为最小值
+            int max_y_std_index = -1; // 最大 y_std 的索引
+            for (int i = 0; i < num_contour_points; ++i) 
+            {
+                // 直接使用 y_contour_stds 来寻找最大值
+                float current_y_std = y_contour_stds[i]; 
+                if (current_y_std > max_y_std) 
+                {
+                    max_y_std = current_y_std;
+                    max_y_std_index = i; // 记录最大值索引
+                }
+            }
+            float max_x, max_y;
+            // 输出最大 y_std 的点
+            if (max_y_std_index != -1) 
+            {
+                max_x = contour_points[max_y_std_index * 2];
+                max_y = contour_points[max_y_std_index * 2 + 1];
+                DEBUG_PRINT("Max y_std point at (x = %f, y = %f) with y_std = %f\n", max_x, max_y, max_y_std);
+            }
 
+            rotate_count, direction = calculate_rotation_time(statewhisker->p_x, -statewhisker->p_y, max_x, -max_y, statewhisker->yaw, maxTurnRate);
             // 清理内存
             free(y_preds);
             free(y_stds);
             free(contour_points);
+            free(y_contour_stds);
             free(significant_points);
         }
         gp_free(&gp_model);
+        stateCF = transition(rotate);
         break;
 
 
@@ -1113,9 +1333,18 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
         break;
 
     case rotate:
-        cmdVelXTemp = 0.0f;
-        cmdVelYTemp = 0.0f;
-        cmdAngWTemp = -1.0f * maxTurnRate;
+        if (rotation_time < 4)
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = -1.0f * maxTurnRate;
+        }
+        else
+        {
+            cmdVelXTemp = 0.0f;
+            cmdVelYTemp = 0.0f;
+            cmdAngWTemp = direction * maxTurnRate;
+        }
         break;
 
     case GPIS:
@@ -1136,3 +1365,7 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
 
     return stateCF;
 }
+
+LOG_GROUP_START(app)
+LOG_ADD(LOG_UINT8, GpisLabel, &GPIS_label)
+LOG_GROUP_STOP(app)
