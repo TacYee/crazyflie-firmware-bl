@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "arm_math.h"
+#include "debug.h"
 
 
 
@@ -21,16 +22,12 @@ void gp_fit(GaussianProcess *gp, const float *X_train, const float *y_train, int
 {
     gp->train_size = train_size;
     gp->kernel = inverse_multiquadric_kernel;
-    gp->alpha = 1e-10; // 噪声
+    gp->alpha = 1e-2; // 噪声
 
     // 动态分配内存
     gp->X_train = (float *)malloc(train_size * 2 * sizeof(float));
     gp->y_train = (float *)malloc(train_size * sizeof(float));
-    gp->K_inv = (float **)malloc(train_size * sizeof(float *));
-    for (int i = 0; i < train_size; ++i) 
-    {
-        gp->K_inv[i] = (float *)malloc(train_size * sizeof(float));
-    }
+    gp->K_inv = (float *)malloc(train_size * train_size * sizeof(float)); // 修改为一维数组
 
     for (int i = 0; i < train_size; ++i) 
     {
@@ -44,9 +41,9 @@ void gp_fit(GaussianProcess *gp, const float *X_train, const float *y_train, int
     {
         for (int j = 0; j < train_size; ++j) 
         {
-            gp->K_inv[i][j] = gp->kernel(&gp->X_train[i * 2], &gp->X_train[j * 2], 2, 2.0f);
+            gp->K_inv[i * train_size + j] = gp->kernel(&gp->X_train[i * 2], &gp->X_train[j * 2], 2, 2.0f);
         }
-        gp->K_inv[i][i] += gp->alpha; // 加上噪声项
+        gp->K_inv[i * train_size + i] += gp->alpha; // 加上噪声项
     }
 
     // 计算 K 的逆
@@ -56,14 +53,16 @@ void gp_fit(GaussianProcess *gp, const float *X_train, const float *y_train, int
     // 初始化 K_matrix
     K_matrix.numRows = train_size;
     K_matrix.numCols = train_size;
-    K_matrix.pData = (float*)gp->K_inv[0]; // 指向第一行
+    K_matrix.pData = gp->K_inv; // 使用一维数组指向数据
 
     // 为 K_inv 分配内存
-    K_inv.numRows = train_size;
-    K_inv.numCols = train_size;
-    K_inv.pData = (float*)malloc(sizeof(float) * train_size * train_size); // 直接在这里分配内存
+    float *K_inv_data = (float *)malloc(sizeof(float) * train_size * train_size); // 直接在这里分配内存
 
     // 计算 K 的逆
+    K_inv.numRows = train_size;
+    K_inv.numCols = train_size;
+    K_inv.pData = K_inv_data; // 将新分配的内存用于存储 K 的逆
+
     arm_mat_inverse_f32(&K_matrix, &K_inv); // 计算 K 的逆
 
     // 将逆矩阵存入 gp->K_inv
@@ -71,78 +70,102 @@ void gp_fit(GaussianProcess *gp, const float *X_train, const float *y_train, int
     {
         for (int j = 0; j < train_size; ++j) 
         {
-            gp->K_inv[i][j] = K_inv.pData[i * train_size + j];
+            gp->K_inv[i * train_size + j] = K_inv.pData[i * train_size + j];
         }
     }   
 
-    free(K_inv.pData); // 释放 K_inv 分配的内存
+    free(K_inv_data); // 释放 K_inv 分配的内存
 }
 
 // 预测新的输入
 void gp_predict(const GaussianProcess *gp, const float *X_test, int test_size, float *y_pred, float *y_std) {
-    float *K_trans = (float *)malloc(test_size * gp->train_size * sizeof(float)); // K(X_test, X_train)
-    float *K_test = (float *)malloc(test_size * test_size * sizeof(float)); // K(X_test, X_test)
+    // 定义矩阵结构
+    arm_matrix_instance_f32 K_trans, K_test,K_inv_instance, y_train, y_mean;
+    
+    // 初始化 K_trans 矩阵
+    float *K_trans_data = (float *)malloc(test_size * gp->train_size * sizeof(float));
 
-    for (int i = 0; i < test_size; ++i) 
-    {
-        for (int j = 0; j < gp->train_size; ++j) {
-            K_trans[i * gp->train_size + j] = gp->kernel(&X_test[i * 2], &gp->X_train[j * 2], 2, 2.0f);
-        }
-    }
+    arm_mat_init_f32(&K_trans, test_size, gp->train_size, K_trans_data);
+    
+    // 初始化 K_test 矩阵
+    float *K_test_data = (float *)malloc(test_size * test_size * sizeof(float));
+    arm_mat_init_f32(&K_test, test_size, test_size, K_test_data);
 
-    for (int i = 0; i < test_size; ++i) 
-    {
-        for (int j = 0; j < test_size; ++j) {
-            K_test[i * test_size + j] = gp->kernel(&X_test[i * 2], &X_test[j * 2], 2, 2.0f);
-        }
-    }
+    // 初始化 K_inv 矩阵
+    arm_mat_init_f32(&K_inv_instance, gp->train_size, gp->train_size, gp->K_inv); // 使用一维数组
+    // 初始化 y_train 矩阵
+    arm_mat_init_f32(&y_train, gp->train_size, 1, gp->y_train);
 
-    // 计算预测均值
-    for (int i = 0; i < test_size; ++i) 
-    {
-        y_pred[i] = 0.0f;
-        for (int j = 0; j < gp->train_size; ++j) 
-        {
-            float K_inv_yj = 0.0;
-            for (int k = 0; k < gp->train_size; k++) 
-            {
-                K_inv_yj += gp->K_inv[j][k] * gp->y_train[k];
-            }
-            // 这里应该乘上 y_train[j] 而不是使用 gp->K_inv[j][j]，也要用整个逆矩阵而不是对角线值
-            y_pred[i] += K_trans[i * gp->train_size + j] * K_inv_yj; 
-        }
-}
-
-    // 计算方差
+    // 计算 K_trans 矩阵 K(X_test, X_train)
     for (int i = 0; i < test_size; ++i) {
-        float y_var = K_test[i * test_size + i]; // K(X_test, X_test)
-        
-        // Subtract the contribution of the training data
-        for (int j = 0; j < gp->train_size; j++) {
-            float K_trans_ij = K_trans[i * gp->train_size + j]; // K_trans[i, j]
-            float temp_sum = 0.0;
-
-            // Calculate the contribution of K_inv * K_trans[j, :]
-            for (int k = 0; k < gp->train_size; k++) {
-                temp_sum += gp->K_inv[j][k] * K_trans[k * test_size + i]; // K_trans[k, i]
-            }
-
-            y_var -= K_trans_ij * temp_sum; // Subtract the contribution
+        for (int j = 0; j < gp->train_size; ++j) {
+            K_trans.pData[i * gp->train_size + j] = gp->kernel(&X_test[i * 2], &gp->X_train[j * 2], 2, 2.0f);
         }
-        y_std[i] = sqrt(y_var);
+    }
+
+    // 计算 K_test 矩阵 K(X_test, X_test)
+    for (int i = 0; i < test_size; ++i) {
+        for (int j = 0; j < test_size; ++j) {
+            K_test.pData[i * test_size + j] = gp->kernel(&X_test[i * 2], &X_test[j * 2], 2, 2.0f);
+        }
+    }
+
+    // 为 y_mean 分配内存
+    float *y_mean_data = (float *)malloc(test_size * sizeof(float));
+
+    arm_mat_init_f32(&y_mean, test_size, 1, y_mean_data); // 定义 y_mean 矩阵
+
+    // 计算预测均值 y_mean = K_trans * K_inv * y_train
+    arm_matrix_instance_f32 K_trans_K_inv;
+    float *K_trans_K_inv_data = (float *)malloc(test_size * gp->train_size * sizeof(float));
+    arm_mat_init_f32(&K_trans_K_inv, test_size, gp->train_size, K_trans_K_inv_data);
+
+    arm_mat_mult_f32(&K_trans, &K_inv_instance, &K_trans_K_inv);  // K_trans * K_inv
+    arm_mat_mult_f32(&K_trans_K_inv, &y_train, &y_mean);  // K_trans_K_inv * y_train
+    
+    // 将预测均值写入 y_pred
+    for (int i = 0; i < test_size; ++i) {
+        y_pred[i] = y_mean.pData[i]; // 复制预测均值到输出参数
+    }
+
+    // 计算 K_trans 的转置
+    arm_matrix_instance_f32 K_trans_T;
+    float *K_trans_T_data = (float *)malloc(gp->train_size * test_size * sizeof(float)); // K_trans_T 的数据存储
+    arm_mat_init_f32(&K_trans_T, gp->train_size, test_size, K_trans_T_data);
+    arm_mat_trans_f32(&K_trans, &K_trans_T); // 计算 K_trans 的转置
+    // 计算方差 y_var = K_test - K_trans * K_inv * K_trans.T
+    arm_matrix_instance_f32 K_trans_K_inv_K_transT;
+    float *K_trans_K_inv_K_transT_data = (float *)malloc(test_size * test_size * sizeof(float));
+    arm_mat_init_f32(&K_trans_K_inv_K_transT, test_size, test_size, K_trans_K_inv_K_transT_data);
+    
+
+    arm_mat_mult_f32(&K_trans_K_inv, &K_trans_T, &K_trans_K_inv_K_transT); // K_trans_K_inv * K_trans
+
+    // 计算 y_var = K_test - K_trans_K_inv_K_transT
+    arm_matrix_instance_f32 y_var;
+    float *y_var_data = (float *)malloc(test_size * test_size * sizeof(float));
+    arm_mat_init_f32(&y_var, test_size, test_size, y_var_data);
+    
+    arm_mat_sub_f32(&K_test, &K_trans_K_inv_K_transT, &y_var); // K_test - K_trans_K_inv_K_transT
+
+    // 计算标准差
+    for (int i = 0; i < test_size; ++i) {
+        y_std[i] = sqrtf(y_var.pData[i * test_size + i]); // 取对角线元素计算标准差
     }
 
     // 释放动态分配的内存
-    free(K_trans);
-    free(K_test);
+    free(K_trans_data);
+    free(K_test_data);
+    free(y_mean_data);
+    free(K_trans_K_inv_data);
+    free(K_trans_T_data); 
+    free(K_trans_K_inv_K_transT_data);
+    free(y_var_data);
 }
 
 // 清理高斯过程
 void gp_free(GaussianProcess *gp) {
     free(gp->X_train); // 释放训练输入内存
     free(gp->y_train); // 释放训练输出内存
-    for (int i = 0; i < gp->train_size; ++i) {
-        free(gp->K_inv[i]); // 释放每行的内存
-    }
     free(gp->K_inv); // 释放指向行的指针
 }

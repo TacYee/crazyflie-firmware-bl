@@ -212,3 +212,139 @@ int main() {
 
     return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+// 高斯过程中的逆多二次核函数
+float inverse_multiquadric_kernel(const float *X, const float *Y, int dim, float c) 
+{
+    float dist_sq = 0.0f;
+    for (int i = 0; i < dim; ++i) 
+    {
+        dist_sq += (X[i] - Y[i]) * (X[i] - Y[i]);
+    }
+    return 1.0f / sqrtf(dist_sq + c * c);
+}
+
+// 拟合训练数据
+void gp_fit(GaussianProcess *gp, const float *X_train, const float *y_train, int train_size) 
+{
+
+    gp->train_size = train_size;
+    gp->kernel = inverse_multiquadric_kernel;
+    gp->alpha = 1e-10; // 噪声
+
+    // 拷贝训练数据
+    for (int i = 0; i < train_size; ++i) 
+    {
+        gp->X_train[i * 2] = X_train[i * 2];
+        gp->X_train[i * 2 + 1] = X_train[i * 2 + 1];
+        gp->y_train[i] = y_train[i];
+    }
+
+    // 计算核矩阵 K(X_train, X_train) + αI
+    for (int i = 0; i < train_size; ++i) 
+    {
+        for (int j = 0; j < train_size; ++j) 
+        {
+            gp->K_inv[i * train_size + j] = gp->kernel(&gp->X_train[i * 2], &gp->X_train[j * 2], 2, 2.0f);
+        }
+        gp->K_inv[i * train_size + i] += gp->alpha; // 加上噪声项
+    }
+
+    // 计算 K 的逆
+    arm_matrix_instance_f32 K_matrix;
+    arm_matrix_instance_f32 K_inv;
+
+    // 初始化 K_matrix
+    K_matrix.numRows = train_size;
+    K_matrix.numCols = train_size;
+    K_matrix.pData = gp->K_inv; // 指向 K_inv 的连续内存
+
+    // 为 K_inv 分配内存
+    float K_inv_data[MAX_TRAIN_SIZE * MAX_TRAIN_SIZE]; // 使用固定大小的数组
+    K_inv.numRows = train_size;
+    K_inv.numCols = train_size;
+    K_inv.pData = K_inv_data;
+
+    // 计算 K 的逆
+    arm_mat_inverse_f32(&K_matrix, &K_inv); // 计算 K 的逆
+
+    // 将逆矩阵存入 gp->K_inv（如果需要，可以直接在 K_inv 中）
+    for (int i = 0; i < train_size; ++i) 
+    {
+        for (int j = 0; j < train_size; ++j) 
+        {
+            gp->K_inv[i * train_size + j] = K_inv.pData[i * train_size + j];
+        }
+    }
+}
+
+void gp_predict(const GaussianProcess *gp, const float *X_test, int test_size, float *y_pred, float *y_std) {
+
+    // 定义矩阵结构
+    arm_matrix_instance_f32 K_trans, K_test, K_inv_instance, y_train, y_mean;
+
+    // 使用固定大小的数组
+    float K_trans_data[MAX_TRAIN_SIZE]; // 1 x train_size
+    float K_test_data[1];               // 1 x 1
+
+    // 初始化 K_trans 矩阵
+    arm_mat_init_f32(&K_trans, 1, gp->train_size, K_trans_data);
+    
+    // 初始化 K_test 矩阵
+    arm_mat_init_f32(&K_test, 1, 1, K_test_data);
+
+    // 初始化 K_inv 矩阵
+    arm_mat_init_f32(&K_inv_instance, gp->train_size, gp->train_size, (float *)gp->K_inv); // 直接使用 gp->K_inv
+    
+    // 初始化 y_train 矩阵
+    arm_mat_init_f32(&y_train, gp->train_size, 1, (float *)gp->y_train);
+
+    // 计算 K_trans 矩阵 K(X_test, X_train)
+    for (int j = 0; j < gp->train_size; j++) {
+        K_trans.pData[j] = gp->kernel(&X_test[0], &gp->X_train[j * 2], 2, 2.0f);
+    }
+
+    // 计算 K_test 矩阵 K(X_test, X_test)
+    K_test.pData[0] = gp->kernel(&X_test[0], &X_test[0], 2, 2.0f);
+
+    // 计算预测均值 y_mean = K_trans * K_inv * y_train
+    arm_matrix_instance_f32 K_trans_K_inv;
+    float K_trans_K_inv_data[MAX_TRAIN_SIZE]; // 1 x train_size
+    arm_mat_init_f32(&K_trans_K_inv, 1, gp->train_size, K_trans_K_inv_data);
+
+    arm_mat_mult_f32(&K_trans, &K_inv_instance, &K_trans_K_inv);  // K_trans * K_inv
+    arm_mat_mult_f32(&K_trans_K_inv, &y_train, &y_mean);  // K_trans_K_inv * y_train
+
+    // 计算 K_trans 的转置
+    arm_matrix_instance_f32 K_trans_T;
+    float K_trans_T_data[MAX_TRAIN_SIZE]; // train_size x 1
+    arm_mat_init_f32(&K_trans_T, gp->train_size, 1, K_trans_T_data);
+    arm_mat_trans_f32(&K_trans, &K_trans_T); // 计算 K_trans 的转置
+
+    // 计算 K_trans_K_inv_K_transT
+    float K_trans_K_inv_K_transT_data[MAX_TRAIN_SIZE]; // 1 x 1
+    arm_matrix_instance_f32 K_trans_K_inv_K_transT;
+    arm_mat_init_f32(&K_trans_K_inv_K_transT, 1, 1, K_trans_K_inv_K_transT_data);
+    arm_mat_mult_f32(&K_trans_K_inv, &K_trans_T, &K_trans_K_inv_K_transT); // K_trans_K_inv * K_transT
+
+    // 计算 y_var = K_test - K_trans_K_inv_K_transT
+    float y_var_data[1]; // 1 x 1
+    arm_matrix_instance_f32 y_var;
+    arm_mat_init_f32(&y_var, 1, 1, y_var_data);
+    
+    arm_mat_sub_f32(&K_test, &K_trans_K_inv_K_transT, &y_var); // K_test - K_trans_K_inv_K_transT
+
+    // 计算标准差
+    y_pred[0] = y_mean.pData[0];
+    y_std[0] = sqrtf(y_var.pData[0]); // 取对角线元素计算标准差
+}

@@ -89,7 +89,7 @@ void compute_centroid(float *cluster, int cluster_size, float *centroid)
 
 // 找出曲率大且法向量相似的连续点簇
 void find_high_curvature_clusters_with_normals(float *points, int num_points, float max_normal_threshold, float min_normal_threshold, float **significant_points, int *num_significant_points) {
-    int max_clusters = num_points / 2;
+    int max_clusters = num_points;
     *significant_points = (float *)malloc(max_clusters * 2 * sizeof(float));
     *num_significant_points = 0;
 

@@ -6,11 +6,11 @@
 #define MAX_TRAIN_SIZE 30  // 最大训练样本数量
 #define MAX_TEST_SIZE 100    // 最大测试样本数量
 typedef struct {
+    int train_size;
     float *X_train;
     float *y_train;
-    int train_size;
-    float **K_inv;
-    float (*kernel)(const float *, const float *, int, float);
+    float *K_inv; // 将 K_inv 改为一维数组
+    float (*kernel)(const float*, const float*, int, float);
     float alpha;
 } GaussianProcess;
 

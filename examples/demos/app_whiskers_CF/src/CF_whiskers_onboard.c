@@ -44,8 +44,8 @@ int8_t GPIS_label = 0;
 // 定义高斯过程模型和相关变量
 GaussianProcess gp_model;  // 高斯过程模型实例
 static int current_train_index = 0;  // 当前已收集的训练数据索引
-float X_train[MAX_TRAIN_SIZE * 2];  // 训练输入数据，假设每个样本有两个特征
-float y_train[MAX_TRAIN_SIZE];      // 训练输出数据
+static float X_train[MAX_TRAIN_SIZE * 2];  // 训练输入数据，假设每个样本有两个特征
+static float y_train[MAX_TRAIN_SIZE];      // 训练输出数据
 static KalmanFilterWhisker kf1;
 static KalmanFilterWhisker kf2;
 static float process_noise = 0.000001;
@@ -1017,7 +1017,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
                     X_train[current_train_index * 2 + 1] = - (statewhisker->p_y) - (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
-
+                    DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
                     current_train_index++;  // 更新训练数据索引
@@ -1033,7 +1033,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
                     X_train[current_train_index * 2 + 1] = - (statewhisker->p_y) - (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
-
+                    DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
                     current_train_index++;  // 更新训练数据索引
@@ -1055,7 +1055,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - statewhisker->KFoutput_1)/1000.0f  * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
                     X_train[current_train_index * 2 + 1] = - (statewhisker->p_y) - (234.0f - statewhisker->KFoutput_1)/1000.0f * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
-
+                    DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
                     current_train_index++;  // 更新训练数据索引
@@ -1074,7 +1074,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - statewhisker->KFoutput_2)/1000.0f * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
                     X_train[current_train_index * 2 + 1] = - (statewhisker->p_y) - (234.0f - statewhisker->KFoutput_2)/1000.0f * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
-
+                    DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
                     current_train_index++;  // 更新训练数据索引
@@ -1102,6 +1102,19 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             stateCF = transition(GPIS);
             DEBUG_PRINT("Backward finished. Starting rotating.\n");
             rotate_count = 180;
+            if (current_train_index < MAX_TRAIN_SIZE) 
+                {
+                    // 保存状态输入特征 (statewhisker->KFoutput_1)
+                    X_train[current_train_index * 2] = statewhisker->p_x;   // 第一个特征
+                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y); // 第二个特征
+                    DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
+
+                    // 保存输出标签 y (设为 0)
+                    y_train[current_train_index] = -1.0f;
+                    current_train_index++;  // 更新训练数据索引
+                    GPIS_label = -1;
+                    DEBUG_PRINT("Inside Training sample saved. Current index: %d\n", current_train_index);
+                }
         }
         break;
 
@@ -1114,23 +1127,11 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             DEBUG_PRINT("Rotate finished. Starting flying forward.\n");
             CF_count = 150;
             rotation_time++;
-            if (current_train_index < MAX_TRAIN_SIZE) 
-                {
-                    // 保存状态输入特征 (statewhisker->KFoutput_1)
-                    X_train[current_train_index * 2] = statewhisker->p_x;   // 第一个特征
-                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y); // 第二个特征
-
-                    // 保存输出标签 y (设为 0)
-                    y_train[current_train_index] = -1.0f;
-                    current_train_index++;  // 更新训练数据索引
-                    GPIS_label = -1;
-                    DEBUG_PRINT("Inside Training sample saved. Current index: %d\n", current_train_index);
-                }
         }
         break;
     
     case GPIS:
-        if (rotation_time < 1)
+        if (rotation_time < 0)
         {
             stateCF = transition(rotate);
         }
@@ -1151,10 +1152,6 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
 
             float y_preds[grid_size * grid_size];
             float y_stds[grid_size * grid_size];
-            if (y_preds == NULL || y_stds == NULL) 
-            {
-                DEBUG_PRINT("Memory allocation failed!\n");
-            }
 
             // 生成网格并进行预测
             float X_test[2];
@@ -1170,6 +1167,10 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     int idx = i * grid_size + j;
                     y_preds[idx] = y_pred[0];
                     y_stds[idx] = y_std[0];
+                    if (isnan(y_stds[idx]) || isinf(y_stds[idx])) 
+                    {
+                        DEBUG_PRINT("Invalid y_std value detected at index %d: %f\n", idx, (double)y_stds[idx]);
+                    }
                 }
             }
 
@@ -1199,6 +1200,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                         contour_points[num_contour_points * 2] = x_zero;
                         contour_points[num_contour_points * 2 + 1] = y_zero;
                         y_contour_stds[num_contour_points] = y_std_zero;
+                        DEBUG_PRINT("%f,%f,%f\n", (double)contour_points[num_contour_points * 2], (double)contour_points[num_contour_points * 2 + 1],(double)y_contour_stds[num_contour_points]);
                         num_contour_points++;
                     }
 
@@ -1216,8 +1218,16 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                         contour_points[num_contour_points * 2] = x_zero;
                         contour_points[num_contour_points * 2 + 1] = y_zero;
                         y_contour_stds[num_contour_points] = y_std_zero;
+                        DEBUG_PRINT("%f,%f,%f\n", (double)contour_points[num_contour_points * 2], (double)contour_points[num_contour_points * 2 + 1],(double)y_contour_stds[num_contour_points]);
                         num_contour_points++;
                     }
+                }
+            }
+            for (int i = 0; i < num_contour_points; ++i) 
+            {
+                if (isnan(y_contour_stds[i]) || isinf(y_contour_stds[i])) 
+                {
+                    DEBUG_PRINT("Invalid y_std value detected at index %d: %f\n", i, (double)y_contour_stds[i]);
                 }
             }
             // 找到高曲率点
@@ -1336,7 +1346,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
         break;
 
     case rotate:
-        if (rotation_time < 1)
+        if (rotation_time < 0)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = 0.0f;
