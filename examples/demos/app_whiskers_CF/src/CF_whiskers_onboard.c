@@ -1174,77 +1174,29 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                 }
             }
 
-            // 查找相邻点 y_pred 符号变化的边界，并进行插值
-            float contour_points[grid_size * grid_size]; // 存储轮廓点
-            float y_contour_stds[grid_size * grid_size / 2]; // 存储轮廓点对应的 y_std 值
-            int num_contour_points = 0; // 轮廓点的数量
-            for (int i = 0; i < (grid_size - 1); ++i) 
-            {
-                for (int j = 0; j < (grid_size - 1); ++j) 
-                {
-                    int idx_00 = i * grid_size + j;
-                    int idx_01 = i * grid_size + (j + 1);
-                    int idx_10 = (i + 1) * grid_size + j;
+            LineSegment *lineSegments = NULL;  // 动态分配的线段数组
+            Point *orderedContourPoints = NULL; // 动态分配的有序轮廓点数组
 
-                    // 检查四个网格点之间是否有 y_pred = 0 的交叉点
-                    if (y_preds[idx_00] * y_preds[idx_01] < 0) 
-                    {
-                        // 插值x方向的交叉点
-                        float t = fabsf(y_preds[idx_00]) / (fabsf(y_preds[idx_00]) + fabsf(y_preds[idx_01]));
-                        float x_zero = x_min + j * x_step + t * x_step;
-                        float y_zero = y_min + i * y_step;
+            marchingSquares(grid_size, y_preds, y_stds, x_min, x_step, y_min, y_step, &lineSegments);
+            connectContourSegments(lineSegments, &orderedContourPoints);
 
-                        // 插值 y_std 值
-                        float y_std_zero = y_stds[idx_00] + t * (y_stds[idx_01] - y_stds[idx_00]);
-                        // 保存轮廓点
-                        contour_points[num_contour_points * 2] = x_zero;
-                        contour_points[num_contour_points * 2 + 1] = y_zero;
-                        y_contour_stds[num_contour_points] = y_std_zero;
-                        DEBUG_PRINT("%f,%f,%f\n", (double)contour_points[num_contour_points * 2], (double)contour_points[num_contour_points * 2 + 1],(double)y_contour_stds[num_contour_points]);
-                        num_contour_points++;
-                    }
-
-                    if (y_preds[idx_00] * y_preds[idx_10] < 0) 
-                    {
-                        // 插值y方向的交叉点
-                        float t = fabsf(y_preds[idx_00]) / (fabsf(y_preds[idx_00]) + fabsf(y_preds[idx_10]));
-                        float x_zero = x_min + j * x_step;
-                        float y_zero = y_min + i * y_step + t * y_step;
-
-                        // 插值 y_std 值
-                        float y_std_zero = y_stds[idx_00] + t * (y_stds[idx_10] - y_stds[idx_00]);
-
-                        // 保存轮廓点
-                        contour_points[num_contour_points * 2] = x_zero;
-                        contour_points[num_contour_points * 2 + 1] = y_zero;
-                        y_contour_stds[num_contour_points] = y_std_zero;
-                        DEBUG_PRINT("%f,%f,%f\n", (double)contour_points[num_contour_points * 2], (double)contour_points[num_contour_points * 2 + 1],(double)y_contour_stds[num_contour_points]);
-                        num_contour_points++;
-                    }
-                }
-            }
-            for (int i = 0; i < num_contour_points; ++i) 
-            {
-                if (isnan(y_contour_stds[i]) || isinf(y_contour_stds[i])) 
-                {
-                    DEBUG_PRINT("Invalid y_std value detected at index %d: %f\n", i, (double)y_contour_stds[i]);
-                }
-            }
+            // 释放内存
+            free(lineSegments);
             // 找到高曲率点
             float *significant_points;
             int num_significant_points;
-            find_high_curvature_clusters_with_normals(contour_points, num_contour_points, 0.9f, 0.5f, &significant_points, &num_significant_points);
+            find_high_curvature_clusters_with_normals(orderedContourPoints, orderedPointCount, 0.9f, 0.5f, &significant_points, &num_significant_points);
 
             // 对轮廓点应用惩罚
-            apply_penalty(contour_points, num_contour_points, y_stds, significant_points, num_significant_points, 0.4f);
+            apply_penalty(orderedContourPoints, orderedPointCount, y_stds, significant_points, num_significant_points, 0.4f);
             
             // 寻找最大 y_std 点
             float max_y_std = -FLT_MAX; // 初始化为最小值
             int max_y_std_index = -1; // 最大 y_std 的索引
-            for (int i = 0; i < num_contour_points; ++i) 
+            for (int i = 0; i < orderedPointCount; ++i) 
             {
                 // 直接使用 y_contour_stds 来寻找最大值
-                float current_y_std = y_contour_stds[i]; 
+                float current_y_std = orderedContourPoints[i].y_std; 
                 if (current_y_std > max_y_std) 
                 {
                     max_y_std = current_y_std;
@@ -1255,14 +1207,15 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             // 输出最大 y_std 的点
             if (max_y_std_index != -1) 
             {
-                max_x = contour_points[max_y_std_index * 2];
-                max_y = contour_points[max_y_std_index * 2 + 1];
+                max_x = orderedContourPoints[max_y_std_index].x; // 使用 orderedContourPoints 访问 x
+                max_y = orderedContourPoints[max_y_std_index].y; // 使用 orderedContourPoints 访问 y
                 DEBUG_PRINT("Max y_std point at (x = %f, y = %f) with y_std = %f\n", (double)max_x, (double)max_y, (double)max_y_std);
             }
 
             rotate_count = calculate_rotation_time(statewhisker->p_x, -statewhisker->p_y, max_x, -max_y, statewhisker->yaw, maxTurnRate, &direction);
             // 清理内存
             free(significant_points);
+            free(orderedContourPoints);
         }
         gp_free(&gp_model);
         statewhisker->count += 21;
