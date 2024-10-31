@@ -1191,8 +1191,8 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     {
                         // 插值x方向的交叉点
                         float t = fabsf(y_preds[idx_00]) / (fabsf(y_preds[idx_00]) + fabsf(y_preds[idx_01]));
-                        float x_zero = x_min + i * x_step + t * x_step;
-                        float y_zero = y_min + j * y_step;
+                        float x_zero = x_min + j * x_step + t * x_step;
+                        float y_zero = y_min + i * y_step;
 
                         // 插值 y_std 值
                         float y_std_zero = y_stds[idx_00] + t * (y_stds[idx_01] - y_stds[idx_00]);
@@ -1208,8 +1208,8 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     {
                         // 插值y方向的交叉点
                         float t = fabsf(y_preds[idx_00]) / (fabsf(y_preds[idx_00]) + fabsf(y_preds[idx_10]));
-                        float x_zero = x_min + i * x_step;
-                        float y_zero = y_min + j * y_step + t * y_step;
+                        float x_zero = x_min + j * x_step;
+                        float y_zero = y_min + i * y_step + t * y_step;
 
                         // 插值 y_std 值
                         float y_std_zero = y_stds[idx_00] + t * (y_stds[idx_10] - y_stds[idx_00]);
