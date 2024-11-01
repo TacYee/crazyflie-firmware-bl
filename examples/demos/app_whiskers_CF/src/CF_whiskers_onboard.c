@@ -1131,7 +1131,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
         break;
     
     case GPIS:
-        if (rotation_time < 0)
+        if (rotation_time < 3)
         {
             stateCF = transition(rotate);
         }
@@ -1167,21 +1167,15 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     int idx = i * grid_size + j;
                     y_preds[idx] = y_pred[0];
                     y_stds[idx] = y_std[0];
-                    if (isnan(y_stds[idx]) || isinf(y_stds[idx])) 
-                    {
-                        DEBUG_PRINT("Invalid y_std value detected at index %d: %f\n", idx, (double)y_stds[idx]);
-                    }
                 }
             }
 
-            LineSegment *lineSegments = NULL;  // 动态分配的线段数组
-            Point *orderedContourPoints = NULL; // 动态分配的有序轮廓点数组
+            LineSegment lineSegments[grid_size*grid_size/4];       // 静态分配的线段数组
+            Point orderedContourPoints[grid_size*grid_size/4]; 
 
-            marchingSquares(grid_size, y_preds, y_stds, x_min, x_step, y_min, y_step, &lineSegments);
-            connectContourSegments(lineSegments, &orderedContourPoints);
+            marchingSquares(grid_size, y_preds, y_stds, x_min, x_step, y_min, y_step, lineSegments);
+            connectContourSegments(lineSegments, orderedContourPoints);
 
-            // 释放内存
-            free(lineSegments);
             // 找到高曲率点
             float *significant_points;
             int num_significant_points;
@@ -1215,7 +1209,6 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             rotate_count = calculate_rotation_time(statewhisker->p_x, -statewhisker->p_y, max_x, -max_y, statewhisker->yaw, maxTurnRate, &direction);
             // 清理内存
             free(significant_points);
-            free(orderedContourPoints);
         }
         gp_free(&gp_model);
         statewhisker->count += 21;
@@ -1299,7 +1292,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
         break;
 
     case rotate:
-        if (rotation_time < 0)
+        if (rotation_time < 3)
         {
             cmdVelXTemp = 0.0f;
             cmdVelYTemp = 0.0f;

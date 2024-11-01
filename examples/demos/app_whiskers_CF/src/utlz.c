@@ -99,9 +99,13 @@ void find_high_curvature_clusters_with_normals(Point *points, int num_points, fl
     int cluster_size = 0;
 
     for (int i = 1; i < num_points - 1; ++i) {
-        Point *p1 = &points[i - 1]; // 这里修正为 Point *
-        Point *p2 = &points[i];     // 这里修正为 Point *
-        Point *p3 = &points[i + 1]; // 这里修正为 Point *
+        // 计算当前点、前一个点和后一个点的索引
+        int prev_index = (i - 1 + num_points) % num_points; // 处理封闭环
+        int next_index = (i + 1) % num_points; // 处理封闭环
+
+        Point *p1 = &points[prev_index]; // 前一个点
+        Point *p2 = &points[i];          // 当前点
+        Point *p3 = &points[next_index]; // 后一个点
 
         // 计算法向量
         float normal1[2], normal2[2];
@@ -189,23 +193,21 @@ void apply_penalty(Point *contour_points, int num_contour_points, float *y_stds,
     }
 }
 
-// 将线段保存到动态数组中
-void saveLineSegment(LineSegment **lineSegments, float x1, float y1, float y_std1, float x2, float y2, float y_std2) {
-    (*lineSegments) = realloc(*lineSegments, (segmentCount + 1) * sizeof(LineSegment));
-    (*lineSegments)[segmentCount] = (LineSegment){{x1, y1, y_std1}, {x2, y2, y_std2}};
+// 将线段保存到静态数组中
+void saveLineSegment(LineSegment *lineSegments, float x1, float y1, float y_std1, float x2, float y2, float y_std2) 
+{
+    lineSegments[segmentCount] = (LineSegment){{x1, y1, y_std1}, {x2, y2, y_std2}};
     segmentCount++;
 }
 
 // 按顺序保存轮廓点
-void saveOrderedContourPoint(Point **orderedContourPoints, float x, float y, float y_std) 
+void saveOrderedContourPoint(Point *orderedContourPoints, float x, float y, float y_std) 
 {
-    (*orderedContourPoints) = realloc(*orderedContourPoints, (orderedPointCount + 1) * sizeof(Point));
-    (*orderedContourPoints)[orderedPointCount] = (Point){x, y, y_std};
-    DEBUG_PRINT("orderedContourPoints x: %f y: %f std: %f\n", (double)x, (double)y,(double)y_std);
+    orderedContourPoints[orderedPointCount] = (Point){x, y, y_std};
     orderedPointCount++;
 }
 
-void marchingSquares(int grid_size, float *y_preds, float *y_stds, float x_min, float x_step, float y_min, float y_step, LineSegment **lineSegments) 
+void marchingSquares(int grid_size, float *y_preds, float *y_stds, float x_min, float x_step, float y_min, float y_step, LineSegment *lineSegments) 
 {
     for (int i = 0; i < grid_size - 1; i++) 
     {
@@ -255,7 +257,7 @@ void marchingSquares(int grid_size, float *y_preds, float *y_stds, float x_min, 
                         float t2 = fabsf(y_preds[idx_10]) / (fabsf(y_preds[idx_10]) + fabsf(y_preds[idx_11]));
                         float x2 = x_min + j * x_step + t2 * x_step;
                         float y2 = y_min + (i + 1) * y_step;
-                        float y_std2 = y_stds[idx_10] + t2 * (y_stds[idx_10] - y_stds[idx_11]);
+                        float y_std2 = y_stds[idx_10] + t2 * (y_stds[idx_11] - y_stds[idx_10]);
 
                         saveLineSegment(lineSegments, x1, y1, y_std1, x2, y2, y_std2);
                     }
@@ -279,10 +281,10 @@ void marchingSquares(int grid_size, float *y_preds, float *y_stds, float x_min, 
                 case 4: // 0100
                 case 11: // 1011
                     {
-                        float t1 = fabsf(y_preds[idx_01]) / (fabsf(y_preds[idx_01]) + fabsf(y_preds[idx_00]));
+                        float t1 = fabsf(y_preds[idx_00]) / (fabsf(y_preds[idx_00]) + fabsf(y_preds[idx_01]));
                         float x1 = x_min + j * x_step + t1 * x_step;
                         float y1 = y_min + i * y_step;
-                        float y_std1 = y_stds[idx_01] + t1 * (y_stds[idx_00] - y_stds[idx_01]);
+                        float y_std1 = y_stds[idx_01] + t1 * (y_stds[idx_01] - y_stds[idx_00]);
 
                         float t2 = fabsf(y_preds[idx_01]) / (fabsf(y_preds[idx_01]) + fabsf(y_preds[idx_11]));
                         float x2 = x_min + (j + 1) * x_step;
@@ -317,7 +319,7 @@ void marchingSquares(int grid_size, float *y_preds, float *y_stds, float x_min, 
                         float t1 = fabsf(y_preds[idx_00]) / (fabsf(y_preds[idx_01]) + fabsf(y_preds[idx_00]));
                         float x1 = x_min + j * x_step + t1 * x_step;
                         float y1 = y_min + i * y_step;
-                        float y_std1 = y_stds[idx_00] + t1 * (y_stds[idx_01] - y_stds[idx_00]);
+                        float y_std1 = y_stds[idx_00] + t1 * (y_stds[idx_00] - y_stds[idx_10]);
 
                         float t2 = fabsf(y_preds[idx_00]) / (fabsf(y_preds[idx_00]) + fabsf(y_preds[idx_10]));
                         float x2 = x_min + j * x_step;
@@ -341,9 +343,9 @@ void marchingSquares(int grid_size, float *y_preds, float *y_stds, float x_min, 
 }
 
 // 按顺序连接轮廓线段
-void connectContourSegments(LineSegment *lineSegments, Point **orderedContourPoints) 
+void connectContourSegments(LineSegment *lineSegments, Point *orderedContourPoints) 
 {
-    int *visited = calloc(segmentCount, sizeof(int));
+    int visited[25] = {0};
     int foundStart = 0;
 
     // 从第一条未访问的线段出发
@@ -385,5 +387,4 @@ void connectContourSegments(LineSegment *lineSegments, Point **orderedContourPoi
             }
         }
     }
-    free(visited);
 }
