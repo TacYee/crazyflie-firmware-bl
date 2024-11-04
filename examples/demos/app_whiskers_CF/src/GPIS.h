@@ -3,13 +3,14 @@
 #define GPIS_H
 
 #include <stdlib.h>
-#define MAX_TRAIN_SIZE 30  // 最大训练样本数量
+#define MAX_TRAIN_SIZE 50  // 最大训练样本数量
 #define MAX_TEST_SIZE 100    // 最大测试样本数量
+
 typedef struct {
     int train_size;
-    float *X_train;
-    float *y_train;
-    float *K_inv; // 将 K_inv 改为一维数组
+    float X_train[MAX_TRAIN_SIZE * 2]; // 使用静态数组
+    float y_train[MAX_TRAIN_SIZE]; // 使用静态数组
+    float K_inv[MAX_TRAIN_SIZE * MAX_TRAIN_SIZE]; // 使用静态数组
     float (*kernel)(const float*, const float*, int, float);
     float alpha;
 } GaussianProcess;

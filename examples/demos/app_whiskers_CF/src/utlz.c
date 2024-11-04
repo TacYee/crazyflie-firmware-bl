@@ -90,22 +90,25 @@ void compute_centroid(float *cluster, int cluster_size, float *centroid)
     centroid[1] /= cluster_size;
 }
 
-void find_high_curvature_clusters_with_normals(Point *points, int num_points, float max_normal_threshold, float min_normal_threshold, float **significant_points, int *num_significant_points) {
-    int max_clusters = num_points;
-    *significant_points = (float *)malloc(max_clusters * 2 * sizeof(float)); // 每个点有 x 和 y 坐标
-    *num_significant_points = 0;
+void find_high_curvature_clusters_with_normals(Point *points, int num_points, float max_normal_threshold, float min_normal_threshold, float *significant_points, int *num_significant_points) {
+    float current_cluster[50]; // 用于存储当前簇的点（x 和 y）
+    int cluster_size = 0; // 当前簇的大小
 
-    float *current_cluster = (float *)malloc(num_points * 2 * sizeof(float)); // 假设当前簇最多包含所有点
-    int cluster_size = 0;
+    *num_significant_points = 0; // 初始化显著点数量
 
-    for (int i = 1; i < num_points - 1; ++i) {
-        // 计算当前点、前一个点和后一个点的索引
-        int prev_index = (i - 1 + num_points) % num_points; // 处理封闭环
-        int next_index = (i + 1) % num_points; // 处理封闭环
+    for (int i = 1; i < num_points; ++i) 
+    {
+        Point *p1, *p2, *p3;
+        if (i < num_points - 1) {
+            p1 = &points[i - 1]; // 前一个点
+            p2 = &points[i];      // 当前点
+            p3 = &points[i + 1];  // 后一个点
+        } else {
+            p1 = &points[i - 1]; // 前一个点
+            p2 = &points[i];      // 当前点
+            p3 = &points[0];  // 后一个点
+        }
 
-        Point *p1 = &points[prev_index]; // 前一个点
-        Point *p2 = &points[i];          // 当前点
-        Point *p3 = &points[next_index]; // 后一个点
 
         // 计算法向量
         float normal1[2], normal2[2];
@@ -118,23 +121,10 @@ void find_high_curvature_clusters_with_normals(Point *points, int num_points, fl
         // 判断法向量相似性是否在阈值范围内
         if (cos_theta < max_normal_threshold) {
             // 将当前点添加到当前簇
-            current_cluster[cluster_size * 2] = p2->x;
-            current_cluster[cluster_size * 2 + 1] = p2->y;
-            cluster_size++;
-
-            // 如果法向量相似性小于最小阈值，结束当前簇
-            if (cos_theta < min_normal_threshold) {
-                // 计算当前簇的质心
-                float centroid[2];
-                compute_centroid(current_cluster, cluster_size, centroid);
-
-                // 将质心添加到显著点数组
-                (*significant_points)[(*num_significant_points) * 2] = centroid[0];
-                (*significant_points)[(*num_significant_points) * 2 + 1] = centroid[1];
-                (*num_significant_points)++;
-
-                // 清空当前簇
-                cluster_size = 0;
+            if (cluster_size < 25) { // 确保不超出数组界限
+                current_cluster[cluster_size * 2] = p2->x;
+                current_cluster[cluster_size * 2 + 1] = p2->y;
+                cluster_size++;
             }
         } else {
             // 如果当前簇不为空，结束当前簇并计算质心
@@ -142,11 +132,11 @@ void find_high_curvature_clusters_with_normals(Point *points, int num_points, fl
                 float centroid[2];
                 compute_centroid(current_cluster, cluster_size, centroid);
 
-                (*significant_points)[(*num_significant_points) * 2] = centroid[0];
-                (*significant_points)[(*num_significant_points) * 2 + 1] = centroid[1];
+                significant_points[(*num_significant_points) * 2] = centroid[0];
+                significant_points[(*num_significant_points) * 2 + 1] = centroid[1];
                 (*num_significant_points)++;
 
-                cluster_size = 0;
+                cluster_size = 0; // 重置当前簇大小
             }
         }
     }
@@ -156,12 +146,10 @@ void find_high_curvature_clusters_with_normals(Point *points, int num_points, fl
         float centroid[2];
         compute_centroid(current_cluster, cluster_size, centroid);
 
-        (*significant_points)[(*num_significant_points) * 2] = centroid[0];
-        (*significant_points)[(*num_significant_points) * 2 + 1] = centroid[1];
+        significant_points[(*num_significant_points) * 2] = centroid[0];
+        significant_points[(*num_significant_points) * 2 + 1] = centroid[1];
         (*num_significant_points)++;
     }
-
-    free(current_cluster);
 }
 
 // 计算惩罚函数
@@ -204,6 +192,7 @@ void saveLineSegment(LineSegment *lineSegments, float x1, float y1, float y_std1
 void saveOrderedContourPoint(Point *orderedContourPoints, float x, float y, float y_std) 
 {
     orderedContourPoints[orderedPointCount] = (Point){x, y, y_std};
+    DEBUG_PRINT("orderedContourPoints x: %f y: %f std: %f\n", (double)x, (double)y,(double)y_std);
     orderedPointCount++;
 }
 

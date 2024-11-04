@@ -117,7 +117,9 @@ void appMain()
 
   while(1) 
   {
-    vTaskDelay(M2T(20));
+    const TickType_t xFrequency = pdMS_TO_TICKS(20); // 每次循环 20 毫秒对应 50 Hz
+    const TickType_t xFrequency_GPIS = pdMS_TO_TICKS(260); // 每次循环 260 毫秒
+    TickType_t xLastWakeTime = xTaskGetTickCount(); // 获取当前时间
     //DEBUG_PRINT(".");
     float heightEstimate = logGetFloat(idHeightEstimate);
 
@@ -152,11 +154,17 @@ void appMain()
           {
             if (stategpis == 1)
             {
-              stateInnerLoop = KFMLPFSM_EXP_GPIS(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
-                            whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
               if (stateInnerLoop == GPIS)
               {
-                vTaskDelay(M2T(400));
+                stateInnerLoop = KFMLPFSM_EXP_GPIS(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
+                            whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
+                vTaskDelayUntil(&xLastWakeTime, xFrequency_GPIS);
+                xLastWakeTime = xTaskGetTickCount();
+              }
+              else
+              {
+                stateInnerLoop = KFMLPFSM_EXP_GPIS(&cmdVelX, &cmdVelY, &cmdAngWDeg, whisker1_1, whisker1_2, whisker1_3,
+                            whisker2_1, whisker2_2, whisker2_3, &statewhisker, timeNow);
               }
             }
             else
@@ -204,6 +212,7 @@ void appMain()
         }
       }
     }
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
 }
 

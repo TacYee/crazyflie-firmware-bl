@@ -16,7 +16,8 @@
 #include "GPIS.h"
 #include "physicalConstants.h"
 #include "utlz.h"
-
+#include "FreeRTOS.h"
+#include "time.h"
 #define DATA_SIZE 100
 
 static float firstRun = false;
@@ -1012,7 +1013,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                 is_KF_initialized = 1; // 标记已初始化
                 statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
                 statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
-                if (current_train_index < MAX_TRAIN_SIZE && CF_count%30 == 0) 
+                if (current_train_index < MAX_TRAIN_SIZE && CF_count % 40 == 0) 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
@@ -1028,7 +1029,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             {
                 dis_net(statewhisker);
                 KF_data_receive(statewhisker, &kf1, &kf2);
-                if (current_train_index < MAX_TRAIN_SIZE && CF_count % 30 == 0) 
+                if (current_train_index < MAX_TRAIN_SIZE && CF_count % 40 == 0) 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
@@ -1050,7 +1051,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             statewhisker->mlpoutput_2 = 0.0f;
             is_KF_initialized = 0;
             DEBUG_PRINT("Whisker 2 loses contact. Reset KF.\n");
-            if (current_train_index < MAX_TRAIN_SIZE && CF_count % 30 == 0) 
+            if (current_train_index < MAX_TRAIN_SIZE && CF_count % 40 == 0) 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - statewhisker->KFoutput_1)/1000.0f  * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
@@ -1069,7 +1070,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
             is_KF_initialized = 0;
             DEBUG_PRINT("Whisker 1 loses contact. Reset KF.\n");
-            if (current_train_index < MAX_TRAIN_SIZE && CF_count % 30 == 0) 
+            if (current_train_index < MAX_TRAIN_SIZE && CF_count % 40 == 0) 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - statewhisker->KFoutput_2)/1000.0f * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
@@ -1138,6 +1139,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
 
         else if (current_train_index > 0) 
         {
+            float time_start = usecTimestamp() / 1e6;
             // 调用 gp_fit 函数拟合模型，使用当前已收集的数据进行训练
             gp_fit(&gp_model, X_train, y_train, current_train_index);
             DEBUG_PRINT("GP model trained with %d training samples.\n", current_train_index);
@@ -1167,20 +1169,21 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     int idx = i * grid_size + j;
                     y_preds[idx] = y_pred[0];
                     y_stds[idx] = y_std[0];
+                if (isnan(y_stds[idx]) || isinf(y_stds[idx])) 
+                    {
+                        DEBUG_PRINT("Invalid y_std value detected at index %d: %f\n", idx, (double)y_stds[idx]);
+                    }
                 }
             }
-
-            LineSegment lineSegments[grid_size*grid_size/4];       // 静态分配的线段数组
-            Point orderedContourPoints[grid_size*grid_size/4]; 
+            LineSegment lineSegments[grid_size*grid_size / 4];       // 静态分配的线段数组
+            Point orderedContourPoints[grid_size*grid_size / 4]; 
 
             marchingSquares(grid_size, y_preds, y_stds, x_min, x_step, y_min, y_step, lineSegments);
             connectContourSegments(lineSegments, orderedContourPoints);
-
             // 找到高曲率点
-            float *significant_points;
+            float significant_points[grid_size * grid_size / 2];
             int num_significant_points;
-            find_high_curvature_clusters_with_normals(orderedContourPoints, orderedPointCount, 0.9f, 0.5f, &significant_points, &num_significant_points);
-
+            find_high_curvature_clusters_with_normals(orderedContourPoints, orderedPointCount, 0.9f, 0.3f, significant_points, &num_significant_points);
             // 对轮廓点应用惩罚
             apply_penalty(orderedContourPoints, orderedPointCount, y_stds, significant_points, num_significant_points, 0.4f);
             
@@ -1207,12 +1210,12 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             }
 
             rotate_count = calculate_rotation_time(statewhisker->p_x, -statewhisker->p_y, max_x, -max_y, statewhisker->yaw, maxTurnRate, &direction);
-            // 清理内存
-            free(significant_points);
+            float time_end = usecTimestamp() / 1e6;
+            double time_taken = (double)(time_end - time_start);
+            DEBUG_PRINT("run time: %f s\n", time_taken);
         }
-        gp_free(&gp_model);
-        statewhisker->count += 21;
-        stateCF = transition(rotate);
+        statewhisker->count += 14;
+        stateCF = transition(rotate);   
         break;
 
 
