@@ -15,18 +15,15 @@ float calculate_rotation_time(float p_x, float p_y, float max_x, float max_y, fl
     float delta_x = max_x - p_x;
     float delta_y = max_y - p_y;
 
-    // 计算目标向量与x轴的角度 (以弧度为单位)
-    float target_angle = atan2(delta_y, delta_x);
-
-    // 将当前的 yaw 转换为弧度
-    float current_yaw_rad = current_yaw * (M_PI_F / 180.0f);
+    // 计算目标向量与x轴的角度 (以角度为单位)
+    float target_angle = atan2(delta_y, delta_x) * (180.0f / M_PI_F);
 
     // 计算 yaw 与目标角度之间的夹角
-    float angle_diff = target_angle - current_yaw_rad;
+    float angle_diff = target_angle - current_yaw;
 
-    // 将角度标准化到 -π 到 π 之间
-    while (angle_diff > M_PI_F) angle_diff -= 2 * M_PI_F;
-    while (angle_diff < -M_PI_F) angle_diff += 2 * M_PI_F;
+    // 将角度标准化到 -180 到 180 之间
+    while (angle_diff > 180.0f) angle_diff -= 360.0f;
+    while (angle_diff < -180.0f) angle_diff += 360.0f;
 
     // 确定旋转方向
     float rotation_time = 0.0f;
@@ -41,7 +38,7 @@ float calculate_rotation_time(float p_x, float p_y, float max_x, float max_y, fl
     rotation_time = 50.0f * fabsf(angle_diff) /max_turn_rate;
 
     // 输出夹角大小和旋转方向
-    DEBUG_PRINT("Angle difference: %f radians. Rotation time: %f\n", (double)angle_diff, (double)rotation_time);
+    DEBUG_PRINT("Angle difference: %f degrees. Rotation time: %f\n", (double)angle_diff, (double)rotation_time);
 
     return rotation_time; // 返回旋转速度，用于设置转动方向
 }
@@ -119,14 +116,29 @@ void find_high_curvature_clusters_with_normals(Point *points, int num_points, fl
         float cos_theta = dot_product(normal1, normal2);
 
         // 判断法向量相似性是否在阈值范围内
-        if (cos_theta < max_normal_threshold) {
+        if (cos_theta < min_normal_threshold) {
             // 将当前点添加到当前簇
+            if (cluster_size > 0) { // 确保不超出数组界限
+                float centroid[2];
+                compute_centroid(current_cluster, cluster_size, centroid);
+
+                significant_points[(*num_significant_points) * 2] = centroid[0];
+                significant_points[(*num_significant_points) * 2 + 1] = centroid[1];
+                (*num_significant_points)++;
+            significant_points[(*num_significant_points) * 2] = p2->x;
+            significant_points[(*num_significant_points) * 2 + 1] = p2->y;
+            cluster_size = 0; // 重置当前簇大小
+            }
+        } 
+        else if (cos_theta < max_normal_threshold) 
+        {
             if (cluster_size < 25) { // 确保不超出数组界限
                 current_cluster[cluster_size * 2] = p2->x;
                 current_cluster[cluster_size * 2 + 1] = p2->y;
                 cluster_size++;
             }
-        } else {
+        }
+        else {
             // 如果当前簇不为空，结束当前簇并计算质心
             if (cluster_size > 0) {
                 float centroid[2];

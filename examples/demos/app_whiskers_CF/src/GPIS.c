@@ -43,7 +43,7 @@ void gp_fit(GaussianProcess *gp, const float *X_train, const float *y_train, int
     {
         for (int j = 0; j < train_size; ++j) 
         {
-            K_matrix_data[i * train_size + j] = gp->kernel(&gp->X_train[i * 2], &gp->X_train[j * 2], 2, 2.0f);
+            K_matrix_data[i * train_size + j] = gp->kernel(&gp->X_train[i * 2], &gp->X_train[j * 2], 2, 0.8f);
         }
         K_matrix_data[i * train_size + i] += gp->alpha; // 对角线上加上噪声项 α
     }
@@ -103,7 +103,7 @@ void gp_predict(const GaussianProcess *gp, const float *X_test, int test_size, f
     {
         for (int j = 0; j < test_size; ++j) 
         {
-            K_test.pData[i * test_size + j] = gp->kernel(&X_test[i * 2], &X_test[j * 2], 2, 2.0f);
+            K_test.pData[i * test_size + j] = gp->kernel(&X_test[i * 2], &X_test[j * 2], 2, 0.8f);
         }
     }
 

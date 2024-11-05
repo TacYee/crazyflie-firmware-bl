@@ -1017,7 +1017,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
-                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y) - (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+                    X_train[current_train_index * 2 + 1] =  (statewhisker->p_y) + (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
                     DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
@@ -1033,7 +1033,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
-                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y) - (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+                    X_train[current_train_index * 2 + 1] =  (statewhisker->p_y) + (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
                     DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
@@ -1055,7 +1055,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - statewhisker->KFoutput_1)/1000.0f  * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
-                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y) - (234.0f - statewhisker->KFoutput_1)/1000.0f * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+                    X_train[current_train_index * 2 + 1] = (statewhisker->p_y) + (234.0f - statewhisker->KFoutput_1)/1000.0f * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
                     DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
@@ -1074,7 +1074,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = (234.0f - statewhisker->KFoutput_2)/1000.0f * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
-                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y) - (234.0f - statewhisker->KFoutput_2)/1000.0f * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+                    X_train[current_train_index * 2 + 1] =  (statewhisker->p_y) + (234.0f - statewhisker->KFoutput_2)/1000.0f * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
                     DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
@@ -1145,10 +1145,10 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             DEBUG_PRINT("GP model trained with %d training samples.\n", current_train_index);
 
             int8_t grid_size = 10; // 网格的大小
-            float x_min = -3.0f;
-            float x_max = 3.0f;
-            float y_min = -3.0f;
-            float y_max = 3.0f;
+            float x_min = -1.5f;
+            float x_max = 1.5f;
+            float y_min = -1.5f;
+            float y_max = 1.5f;
             float x_step = (x_max - x_min) / (grid_size - 1);
             float y_step = (y_max - y_min) / (grid_size - 1);
 
@@ -1162,8 +1162,8 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             {
                 for (int j = 0; j < grid_size; ++j) 
                 {
-                    X_test[0] = x_min + i * x_step;
-                    X_test[1] = y_min + j * y_step;
+                    X_test[0] = x_min + j * x_step;
+                    X_test[1] = y_min + i * y_step;
                     gp_predict(&gp_model, X_test, 1, y_pred, y_std);
 
                     int idx = i * grid_size + j;
@@ -1209,13 +1209,17 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                 DEBUG_PRINT("Max y_std point at (x = %f, y = %f) with y_std = %f\n", (double)max_x, (double)max_y, (double)max_y_std);
             }
 
-            rotate_count = calculate_rotation_time(statewhisker->p_x, -statewhisker->p_y, max_x, -max_y, statewhisker->yaw, maxTurnRate, &direction);
+            rotate_count = (int)roundf(calculate_rotation_time(statewhisker->p_x, -statewhisker->p_y, max_x, -max_y, statewhisker->yaw, maxTurnRate, &direction));
             float time_end = usecTimestamp() / 1e6;
             double time_taken = (double)(time_end - time_start);
             DEBUG_PRINT("run time: %f s\n", time_taken);
         }
         statewhisker->count += 14;
-        stateCF = transition(rotate);   
+        stateCF = transition(rotate); 
+        firstRunPreprocess = true;
+        statewhisker->count = 0;
+        statewhisker->preprocesscount = 0;
+
         break;
 
 
