@@ -1107,7 +1107,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
                     X_train[current_train_index * 2] = statewhisker->p_x;   // 第一个特征
-                    X_train[current_train_index * 2 + 1] = - (statewhisker->p_y); // 第二个特征
+                    X_train[current_train_index * 2 + 1] = (statewhisker->p_y); // 第二个特征
                     DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
 
                     // 保存输出标签 y (设为 0)
@@ -1209,7 +1209,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                 DEBUG_PRINT("Max y_std point at (x = %f, y = %f) with y_std = %f\n", (double)max_x, (double)max_y, (double)max_y_std);
             }
 
-            rotate_count = (int)roundf(calculate_rotation_time(statewhisker->p_x, -statewhisker->p_y, max_x, -max_y, statewhisker->yaw, maxTurnRate, &direction));
+            rotate_count = (int)roundf(calculate_rotation_time(statewhisker->p_x, statewhisker->p_y, max_x, max_y, statewhisker->yaw, maxTurnRate, &direction));
             float time_end = usecTimestamp() / 1e6;
             double time_taken = (double)(time_end - time_start);
             DEBUG_PRINT("run time: %f s\n", time_taken);
