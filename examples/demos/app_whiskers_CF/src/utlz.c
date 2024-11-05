@@ -16,7 +16,7 @@ float calculate_rotation_time(float p_x, float p_y, float max_x, float max_y, fl
     float delta_y = max_y - p_y;
 
     // 计算目标向量与x轴的角度 (以角度为单位)
-    float target_angle = atan2(delta_y, delta_x) * (180.0f / M_PI_F);
+    float target_angle = (float)atan2(delta_y, delta_x) * (180.0f / M_PI_F);
 
     // 计算 yaw 与目标角度之间的夹角
     float angle_diff = target_angle - current_yaw;
