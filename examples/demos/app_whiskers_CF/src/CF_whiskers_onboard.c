@@ -1022,6 +1022,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
                     current_train_index++;  // 更新训练数据索引
+                    GPIS_label = 0;
                     DEBUG_PRINT("Surface Training sample saved. Current index: %d\n", current_train_index);
                 }
             }
@@ -1060,6 +1061,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
                     current_train_index++;  // 更新训练数据索引
+                    GPIS_label = 0;
                     DEBUG_PRINT("Surface Training sample saved. Current index: %d\n", current_train_index);
                 }
         }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
@@ -1079,6 +1081,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
                     current_train_index++;  // 更新训练数据索引
+                    GPIS_label = 0;
                     DEBUG_PRINT("Surface Training sample saved. Current index: %d\n", current_train_index);
                 }
         }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
