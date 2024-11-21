@@ -50,7 +50,7 @@
 #define MCU_ID_ADDRESS          0x1FFF7A10
 #define MCU_FLASH_SIZE_ADDRESS  0x1FFF7A22
 #ifndef FREERTOS_HEAP_SIZE
-  #define FREERTOS_HEAP_SIZE      30000
+  #define FREERTOS_HEAP_SIZE      23200
 #endif
 #define FREERTOS_MIN_STACK_SIZE 150       // M4-FPU register setup is bigger so stack needs to be bigger
 #define FREERTOS_MCU_CLOCK_HZ   168000000
@@ -207,7 +207,7 @@
 #define KALMAN_TASK_STACKSIZE         (3 * configMINIMAL_STACK_SIZE)
 #define FLAPPERDECK_TASK_STACKSIZE    (2 * configMINIMAL_STACK_SIZE)
 #define ERROR_UKF_TASK_STACKSIZE      (4 * configMINIMAL_STACK_SIZE)
-#define WHISKER_TASK_STACKSIZE        configMINIMAL_STACK_SIZE
+#define WHISKER_TASK_STACKSIZE        (2 * configMINIMAL_STACK_SIZE)
 
 //The radio channel. From 0 to 125
 #define RADIO_CHANNEL 80
