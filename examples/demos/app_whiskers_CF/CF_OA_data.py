@@ -23,7 +23,7 @@ host_name = '192.168.209.81'
 # Valid options are: 'vicon', 'optitrack', 'optitrack_closed_source', 'qualisys', 'nokov', 'vrpn', 'motionanalysis'
 mocap_system_type = 'optitrack'
 
-body_name = "CF"  # Replace with your actual body name
+body_name = "Chaoxiang"  # Replace with your actual body name
 
 
 # True: send position and orientation; False: send position only

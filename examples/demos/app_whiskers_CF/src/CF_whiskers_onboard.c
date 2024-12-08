@@ -420,7 +420,7 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
     case CF:
         if (statewhisker->mlpoutput_1 < MIN_THRESHOLD1 && statewhisker->mlpoutput_2 < MIN_THRESHOLD2)
         {
-            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelXTemp = 1.0f * maxSpeed / 2.0f;
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = 0.0f;
         }
@@ -719,7 +719,7 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
     case CF:
         if (statewhisker->KFoutput_1 < MIN_THRESHOLD1 && statewhisker->KFoutput_2 < MIN_THRESHOLD2)
         {
-            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelXTemp = 1.0f * maxSpeed / 2.0f;
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = 0.0f;
         }
@@ -897,7 +897,7 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
     case CF:
         if (statewhisker->KFoutput_1 < MIN_THRESHOLD1 && statewhisker->KFoutput_2 < MIN_THRESHOLD2)
         {
-            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelXTemp = 1.0f * maxSpeed / 2.0f;
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = 0.0f;
         }
@@ -1253,7 +1253,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
     case CF:
         if (statewhisker->KFoutput_1 < MIN_THRESHOLD1 && statewhisker->KFoutput_2 < MIN_THRESHOLD2)
         {
-            cmdVelXTemp = -1.0f * maxSpeed / 2.0f;
+            cmdVelXTemp = 1.0f * maxSpeed / 2.0f;
             cmdVelYTemp = 0.0f;
             cmdAngWTemp = 0.0f;
         }
