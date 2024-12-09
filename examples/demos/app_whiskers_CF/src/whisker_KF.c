@@ -60,7 +60,7 @@ void KF_update(KalmanFilterWhisker* kf, float z)
 // 获取当前状态估计
 float KF_get_estimate(KalmanFilterWhisker* kf) 
 {
-    return 234 - kf->x_pre;
+    return 240 - kf->x_pre;
 }
 
 void KF_data_receive(StateWhisker *statewhisker, KalmanFilterWhisker *kf1, KalmanFilterWhisker *kf2) 
@@ -70,8 +70,8 @@ void KF_data_receive(StateWhisker *statewhisker, KalmanFilterWhisker *kf1, Kalma
     KF_predict(kf2, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw);
     
     // 更新滤波器
-    KF_update(kf1, 234 - statewhisker->mlpoutput_1);
-    KF_update(kf2, 234 - statewhisker->mlpoutput_2);
+    KF_update(kf1, 240 - statewhisker->mlpoutput_1);
+    KF_update(kf2, 240 - statewhisker->mlpoutput_2);
     
     // 将 KF 的估计值保存到 statewhisker
     statewhisker->KFoutput_1 = KF_get_estimate(kf1);

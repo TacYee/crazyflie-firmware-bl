@@ -41,7 +41,7 @@ class MocapWrapper(Thread):
 
     def quaternion_to_yaw(self, x, y, z, w):
         """从四元数计算 yaw"""
-        yaw = math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+        yaw = math.atan2(2.0 * (w * y - z * x), 1.0 - 2.0 * (x * x + y * y))
         return yaw
 
     def run(self):
@@ -185,7 +185,7 @@ if __name__ == '__main__':
         keep_flying = True
         time.sleep(3)
         data_collection_mode(scf.cf)
-        set_initial_params(scf.cf, 30.0, 120.0, 30.0, 120.0, 0.2, 25.0)
+        set_initial_params(scf.cf, 50.0, 120.0, 50.0, 140.0, 0.2, 25.0)
         unlock_drone(scf.cf)
         print("start flying!")
         try:
