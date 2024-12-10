@@ -48,7 +48,7 @@ static int current_train_index = 0;  // 当前已收集的训练数据索引
 static float X_train[MAX_TRAIN_SIZE * 2];  // 训练输入数据，假设每个样本有两个特征
 static float y_train[MAX_TRAIN_SIZE];      // 训练输出数据
 static KalmanFilterWhisker kf;
-static float process_noise = 0.0002;
+static float process_noise = 0.01;
 static float measurement_noise = 1;
 static float initial_covariance = 50;
 

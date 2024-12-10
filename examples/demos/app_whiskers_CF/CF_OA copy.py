@@ -5,63 +5,14 @@ import os
 import argparse
 from datetime import datetime
 from pathlib import Path
-from threading import Thread
-import motioncapture
 
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from FileLogger import FileLogger
 from cflib.utils import uri_helper
-import math
 
 URI = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E7E7')
-
-# The host name or ip address of the mocap system
-host_name = '192.168.209.81'
-
-# The type of the mocap system
-# Valid options are: 'vicon', 'optitrack', 'optitrack_closed_source', 'qualisys', 'nokov', 'vrpn', 'motionanalysis'
-mocap_system_type = 'optitrack'
-
-body_name = "Chaoxiang"  # Replace with your actual body name
-
-
-# True: send position and orientation; False: send position only
-send_full_pose = True
-
-#obtain position and rotation from mocap
-class MocapWrapper(Thread):
-    def __init__(self, body_name, file_logger):
-        super().__init__()
-        self.body_name = body_name
-        self.file_logger = file_logger
-        self.on_pose = None  # 回调函数，当收到 pose 时调用
-        self._stay_open = True
-        self.start()
-
-    def quaternion_to_yaw(self, x, y, z, w):
-        """从四元数计算 yaw"""
-        yaw = math.atan2(2.0 * (w * y - z * x), 1.0 - 2.0 * (x * x + y * y))
-        return yaw
-
-    def run(self):
-        mc = motioncapture.connect(mocap_system_type, {'hostname': host_name})
-        while self._stay_open:
-            mc.waitForNextFrame()
-            for name, obj in mc.rigidBodies.items():
-                if name == self.body_name:
-                    if self.on_pose:
-                        pos = obj.position
-                        rot = obj.rotation
-                        yaw = self.quaternion_to_yaw(rot.x, rot.y, rot.z, rot.w)
-                        # 通过回调传递 mocap 数据
-                        self.on_pose({
-                            "pos_x": pos[0],
-                            "pos_y": pos[1],
-                            "pos_z": pos[2],
-                            "yaw": yaw
-                        })
 
 def unlock_drone(cf):
     cf.param.set_value('app.stateOuterLoop', '1')
@@ -164,27 +115,32 @@ def setup_logger():
     flogger.enableConfig("PreWhisker2")
     flogger.enableConfig("MLPOUTPUT")
     flogger.enableConfig("StateOuterLoop")
+    flogger.enableConfig("GPISLABEL")
+    # flogger.enableConfig("motor")
+    # flogger.enableConfig("otpos")
     flogger.enableConfig("orientation")
     flogger.enableConfig("laser")
     flogger.enableConfig("KFOUTPUT")
 
-    flogger.enableConfig("mocap")
-
-    # 启动 Mocap 数据同步，并设置回调
-    mocap_logger = MocapWrapper(body_name, flogger)
-    
-    # 设置 mocap_logger 的回调函数，当获取到 pose 数据时注册到 FileLogger
-    def mocap_callback(data):
-        flogger.registerData("mocap", data)
-
-    # 通过 on_pose 属性设置回调
-    mocap_logger.on_pose = mocap_callback
-
-    # 启动日志记录
+    # # UWB
+    # if args["uwb"] == "twr":
+    #     flogger.enableConfig("twr")
+    # elif args["uwb"] == "tdoa":
+    #     print("Needs custom TDoA logging in firmware!")
+        # For instance, see here: https://github.com/Huizerd/crazyflie-firmware/blob/master/src/utils/src/tdoa/tdoaEngine.c
+        # flogger.enableConfig("tdoa")
+    # Flow
+    # flogger.enableConfig("laser")
+    #     flogger.enableConfig("flow")
+    # OptiTrack
+    # if args["optitrack"] != "none":
+    #     flogger.enableConfig("kalman")
     flogger.start()
-    print(1)
-    print("Logging started with callback.")
-
+    # flogger2.start()
+    # flogger3.start()
+    # # Estimator
+    # if args["estimator"] == "kalman":
+    #     flogger.enableConfig("kalman")
 
 if __name__ == '__main__':
 
@@ -201,14 +157,14 @@ if __name__ == '__main__':
     with SyncCrazyflie(URI, cf=cf) as scf:
         cf.platform.send_arming_request(True)
         filelogger=setup_logger()
-        set_initial_params(scf.cf, 50.0, 150.0, 50.0, 150.0, 0.2, 25.0)
+        set_initial_params(scf.cf, 80.0, 130.0, 80.0, 130.0, 0.2, 25.0)
         keep_flying = True
         time.sleep(3)
         unlock_drone(scf.cf)
         apply_mlp(scf.cf)
         apply_kf(scf.cf)
-        # exploration_mode(scf.cf)
-        # exploration_mode_gpis(scf.cf)
+        exploration_mode(scf.cf)
+        exploration_mode_gpis(scf.cf)
         print("start flying!")
         try:
             while keep_flying:
