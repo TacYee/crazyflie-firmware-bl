@@ -27,10 +27,10 @@ static float maxTurnRate = 25.0f;
 static float direction = 1.0f;
 static float CF_THRESHOLD1 = 20.0f;
 static float CF_THRESHOLD2 = 20.0f;
-static float MIN_THRESHOLD1 = 25.0f;
-static float MAX_THRESHOLD1 = 100.0f;
-static float MIN_THRESHOLD2 = 25.0f;
-static float MAX_THRESHOLD2 = 100.0f;
+static float MIN_THRESHOLD1 = 80.0f;
+static float MAX_THRESHOLD1 = 130.0f;
+static float MIN_THRESHOLD2 = 80.0f;
+static float MAX_THRESHOLD2 = 130.0f;
 static float MAX_FILTERTHRESHOLD1 = 20.0f;
 static float MAX_FILTERTHRESHOLD2 = 20.0f;
 static float StartTime;
@@ -47,11 +47,10 @@ GaussianProcess gp_model;  // 高斯过程模型实例
 static int current_train_index = 0;  // 当前已收集的训练数据索引
 static float X_train[MAX_TRAIN_SIZE * 2];  // 训练输入数据，假设每个样本有两个特征
 static float y_train[MAX_TRAIN_SIZE];      // 训练输出数据
-static KalmanFilterWhisker kf1;
-static KalmanFilterWhisker kf2;
-static float process_noise = 0.000001;
+static KalmanFilterWhisker kf;
+static float process_noise = 0.0002;
 static float measurement_noise = 1;
-static float initial_covariance = 0.0001;
+static float initial_covariance = 50;
 
 static StateCF stateCF = hover;
 float timeNow = 0.0f;
@@ -652,8 +651,7 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
             if (!is_KF_initialized)
             {
                 dis_net(statewhisker);
-                KF_init(&kf1, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
-                KF_init(&kf2, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);
+                KF_init(&kf, statewhisker->mlpoutput_1, statewhisker->mlpoutput_2, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
                 is_KF_initialized = 1; // 标记已初始化
                 statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
                 statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
@@ -661,7 +659,7 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
             else
             {
                 dis_net(statewhisker);
-                KF_data_receive(statewhisker, &kf1, &kf2);
+                KF_data_receive(statewhisker, &kf);
             }
 
         }else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
@@ -815,8 +813,7 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
             if (!is_KF_initialized)
             {
                 dis_net(statewhisker);
-                KF_init(&kf1, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
-                KF_init(&kf2, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);
+                KF_init(&kf, statewhisker->mlpoutput_1, statewhisker->mlpoutput_2, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
                 is_KF_initialized = 1; // 标记已初始化
                 statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
                 statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
@@ -824,7 +821,7 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
             else
             {
                 dis_net(statewhisker);
-                KF_data_receive(statewhisker, &kf1, &kf2);
+                KF_data_receive(statewhisker, &kf);
             }
         }else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
@@ -1008,16 +1005,15 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             if (!is_KF_initialized)
             {
                 dis_net(statewhisker);
-                KF_init(&kf1, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
-                KF_init(&kf2, 30.0f, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);
+                KF_init(&kf, statewhisker->mlpoutput_1, statewhisker->mlpoutput_2, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
                 is_KF_initialized = 1; // 标记已初始化
                 statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
                 statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
                 if (current_train_index < MAX_TRAIN_SIZE && CF_count % 40 == 0) 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
-                    X_train[current_train_index * 2] = (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
-                    X_train[current_train_index * 2 + 1] =  (statewhisker->p_y) + (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+                    X_train[current_train_index * 2] = (240.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
+                    X_train[current_train_index * 2 + 1] =  (statewhisker->p_y) + (240.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
                     DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
@@ -1029,12 +1025,12 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             else
             {
                 dis_net(statewhisker);
-                KF_data_receive(statewhisker, &kf1, &kf2);
+                KF_data_receive(statewhisker, &kf);
                 if (current_train_index < MAX_TRAIN_SIZE && CF_count % 40 == 0) 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
-                    X_train[current_train_index * 2] = (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
-                    X_train[current_train_index * 2 + 1] =  (statewhisker->p_y) + (234.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+                    X_train[current_train_index * 2] = (240.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
+                    X_train[current_train_index * 2 + 1] =  (statewhisker->p_y) + (240.0f - (statewhisker->KFoutput_1 + statewhisker->KFoutput_2)/2.0f)/1000.0f  * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
                     DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
@@ -1055,8 +1051,8 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             if (current_train_index < MAX_TRAIN_SIZE && CF_count % 40 == 0) 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
-                    X_train[current_train_index * 2] = (234.0f - statewhisker->KFoutput_1)/1000.0f  * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
-                    X_train[current_train_index * 2 + 1] = (statewhisker->p_y) + (234.0f - statewhisker->KFoutput_1)/1000.0f * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+                    X_train[current_train_index * 2] = (240.0f - statewhisker->KFoutput_1)/1000.0f  * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
+                    X_train[current_train_index * 2 + 1] = (statewhisker->p_y) + (240.0f - statewhisker->KFoutput_1)/1000.0f * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
                     DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;
@@ -1075,8 +1071,8 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             if (current_train_index < MAX_TRAIN_SIZE && CF_count % 40 == 0) 
                 {
                     // 保存状态输入特征 (statewhisker->KFoutput_1)
-                    X_train[current_train_index * 2] = (234.0f - statewhisker->KFoutput_2)/1000.0f * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
-                    X_train[current_train_index * 2 + 1] =  (statewhisker->p_y) + (234.0f - statewhisker->KFoutput_2)/1000.0f * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
+                    X_train[current_train_index * 2] = (240.0f - statewhisker->KFoutput_2)/1000.0f * cosf(statewhisker->yaw * (M_PI_F / 180.0f)) + statewhisker->p_x;   // 第一个特征
+                    X_train[current_train_index * 2 + 1] =  (statewhisker->p_y) + (240.0f - statewhisker->KFoutput_2)/1000.0f * sinf(statewhisker->yaw * (M_PI_F / 180.0f)); // 第二个特征
                     DEBUG_PRINT("%f,%f\n", (double)X_train[current_train_index * 2], (double)X_train[current_train_index * 2 + 1]);
                     // 保存输出标签 y (设为 0)
                     y_train[current_train_index] = 0.0f;

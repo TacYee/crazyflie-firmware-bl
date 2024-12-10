@@ -157,7 +157,7 @@ if __name__ == '__main__':
     with SyncCrazyflie(URI, cf=cf) as scf:
         cf.platform.send_arming_request(True)
         filelogger=setup_logger()
-        set_initial_params(scf.cf, 30.0, 80.0, 30.0, 80.0, 0.2, 25.0)
+        set_initial_params(scf.cf, 80.0, 130.0, 80.0, 130.0, 0.2, 25.0)
         keep_flying = True
         time.sleep(3)
         unlock_drone(scf.cf)
