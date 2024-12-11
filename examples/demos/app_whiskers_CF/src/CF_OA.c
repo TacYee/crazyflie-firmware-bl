@@ -108,7 +108,7 @@ void appMain()
   
 
   // Initialize the wall follower state machine
-  FSMInit(MIN_THRESHOLD1, MAX_THRESHOLD1, MIN_THRESHOLD2, MAX_THRESHOLD2, maxSpeed, maxTurnRate, stateInnerLoop);
+  bool isFSMInitialized = false; 
   ProcessWhiskerInit(&statewhisker);
   // Intialize the setpoint structure
   setpoint_t setpoint;
@@ -124,6 +124,11 @@ void appMain()
     float heightEstimate = logGetFloat(idHeightEstimate);
 
     if (stateOuterLoop == 1) {
+
+      if (!isFSMInitialized) {
+            FSMInit(MIN_THRESHOLD1, MAX_THRESHOLD1, MIN_THRESHOLD2, MAX_THRESHOLD2, maxSpeed, maxTurnRate, stateInnerLoop);
+            isFSMInitialized = true; // 设置标志变量为 true，防止重复初始化
+        }
 
       cmdHeight = 0.3f;
       cmdVelX = 0.0f;

@@ -27,10 +27,10 @@ static float maxTurnRate = 25.0f;
 static float direction = 1.0f;
 static float CF_THRESHOLD1 = 20.0f;
 static float CF_THRESHOLD2 = 20.0f;
-static float MIN_THRESHOLD1 = 80.0f;
-static float MAX_THRESHOLD1 = 130.0f;
-static float MIN_THRESHOLD2 = 80.0f;
-static float MAX_THRESHOLD2 = 130.0f;
+static float MIN_THRESHOLD1 = 20.0f;
+static float MAX_THRESHOLD1 = 100.0f;
+static float MIN_THRESHOLD2 = 20.0f;
+static float MAX_THRESHOLD2 = 100.0f;
 static float MAX_FILTERTHRESHOLD1 = 20.0f;
 static float MAX_FILTERTHRESHOLD2 = 20.0f;
 static float StartTime;
@@ -1176,13 +1176,14 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             }
             LineSegment lineSegments[grid_size*grid_size / 4];       // 静态分配的线段数组
             Point orderedContourPoints[grid_size*grid_size / 4]; 
-
             marchingSquares(grid_size, y_preds, y_stds, x_min, x_step, y_min, y_step, lineSegments);
             connectContourSegments(lineSegments, orderedContourPoints);
             // 找到高曲率点
             float significant_points[grid_size * grid_size / 2];
             int num_significant_points;
-            find_high_curvature_clusters_with_normals(orderedContourPoints, orderedPointCount, 0.9f, 0.3f, significant_points, &num_significant_points);
+            float curvatures[grid_size * grid_size/4];
+            compute_curvature_kernel(&gp_model, orderedContourPoints, orderedPointCount, curvatures);
+            find_high_curvature_clusters_using_curvature(orderedContourPoints, orderedPointCount, curvatures, 0.7,  significant_points, &num_significant_points);
             // 对轮廓点应用惩罚
             apply_penalty(orderedContourPoints, orderedPointCount, y_stds, significant_points, num_significant_points, 0.4f);
             

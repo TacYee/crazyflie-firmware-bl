@@ -5,6 +5,7 @@
 #include "utlz.h"
 #include "physicalConstants.h"
 #include "debug.h"
+#include "GPIS.h"
 
 int segmentCount = 0;             // 线段数量
 int orderedPointCount = 0;        // 有序轮廓点数量
@@ -387,5 +388,115 @@ void connectContourSegments(LineSegment *lineSegments, Point *orderedContourPoin
                 }
             }
         }
+    }
+}
+
+
+void compute_curvature_kernel(const GaussianProcess *gp,
+    Point *contour_points, int contour_count,
+    float *curvatures
+) {
+    // 计算 GP 权重：weights = K_inv * y_train
+    float weights[gp->train_size];
+    for (int i = 0; i < gp->train_size; ++i) {
+        weights[i] = 0.0f;
+        for (int j = 0; j < gp->train_size; ++j) {
+            weights[i] += gp->K_inv[i * gp->train_size + j] * gp->y_train[j];
+        }
+    }
+    for (int i = 0; i < contour_count; i++) {
+        Point x = contour_points[i];
+
+        float grad[2] = {0};
+        float hessian[2][2] = {{0, 0}, {0, 0}};
+        float grad_norm = 0;
+
+        for (int j = 0; j < gp->train_size; j++) {
+            float xi_x = gp->X_train[j * 2];
+            float xi_y = gp->X_train[j * 2 + 1];
+            float w = weights[j];
+
+            float diff_x = x.x - xi_x;
+            float diff_y = x.y - xi_y;
+            float d2 = diff_x * diff_x + diff_y * diff_y;
+            float d2_c2 = d2 + 0.64f;
+
+            // 计算梯度
+            float coeff = -w / powf(d2_c2, 1.5f);
+            grad[0] += coeff * diff_x;
+            grad[1] += coeff * diff_y;
+
+            // 计算 Hessian
+            float outer_00 = diff_x * diff_x;
+            float outer_01 = diff_x * diff_y;
+            float outer_11 = diff_y * diff_y;
+            float hess_coeff1 = 3 * w / powf(d2_c2, 2.5f);
+            float hess_coeff2 = w / powf(d2_c2, 1.5f);
+
+            hessian[0][0] += hess_coeff1 * outer_00 - hess_coeff2;
+            hessian[0][1] += hess_coeff1 * outer_01;
+            hessian[1][0] += hess_coeff1 * outer_01;
+            hessian[1][1] += hess_coeff1 * outer_11 - hess_coeff2;
+        }
+
+        // 计算梯度的范数
+        grad_norm = sqrtf(grad[0] * grad[0] + grad[1] * grad[1]);
+        if (grad_norm == 0) {
+            curvatures[i] = 0;
+            continue;
+        }
+
+        // 计算曲率公式
+        float tr_hessian = hessian[0][0] + hessian[1][1];
+        float grad_hess_grad = 
+            grad[0] * (hessian[0][0] * grad[0] + hessian[0][1] * grad[1]) +
+            grad[1] * (hessian[1][0] * grad[0] + hessian[1][1] * grad[1]);
+        curvatures[i] = (grad_hess_grad - grad_norm * grad_norm * tr_hessian) / 
+                        (grad_norm * grad_norm * grad_norm);
+    }
+}
+
+void find_high_curvature_clusters_using_curvature(
+    Point *contour_points, int num_points, 
+    float *curvatures, float curvature_threshold, 
+    float *significant_points, int *num_significant_points
+) {
+    float current_cluster[50]; // 用于存储当前簇的点（x 和 y）
+    int cluster_size = 0;      // 当前簇的大小
+
+    *num_significant_points = 0; // 初始化显著点数量
+
+    for (int i = 0; i < num_points; ++i) {
+        if (curvatures[i] > curvature_threshold) {
+            // 当前点的曲率超过阈值，添加到当前簇
+            if (cluster_size < 25) { // 确保不会超出数组界限
+                current_cluster[cluster_size * 2] = contour_points[i].x;
+                current_cluster[cluster_size * 2 + 1] = contour_points[i].y;
+                cluster_size++;
+            }
+        } else {
+            // 当前点的曲率未超过阈值，结束当前簇并计算质心
+            if (cluster_size > 0) {
+                float centroid[2];
+                compute_centroid(current_cluster, cluster_size, centroid);
+
+                // 将簇的质心保存为显著曲率点
+                significant_points[(*num_significant_points) * 2] = centroid[0];
+                significant_points[(*num_significant_points) * 2 + 1] = centroid[1];
+                (*num_significant_points)++;
+
+                cluster_size = 0; // 重置当前簇大小
+            }
+        }
+    }
+
+    // 如果最后还有未处理的簇
+    if (cluster_size > 0) {
+        float centroid[2];
+        compute_centroid(current_cluster, cluster_size, centroid);
+
+        significant_points[(*num_significant_points) * 2] = centroid[0];
+        significant_points[(*num_significant_points) * 2 + 1] = centroid[1];
+        (*num_significant_points)++;
     }
 }

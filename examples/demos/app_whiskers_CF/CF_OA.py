@@ -163,7 +163,7 @@ def setup_logger():
     flogger.enableConfig("PreWhisker1")
     flogger.enableConfig("PreWhisker2")
     flogger.enableConfig("MLPOUTPUT")
-    flogger.enableConfig("StateOuterLoop")
+    # flogger.enableConfig("StateOuterLoop")
     flogger.enableConfig("orientation")
     flogger.enableConfig("laser")
     flogger.enableConfig("KFOUTPUT")
@@ -201,12 +201,12 @@ if __name__ == '__main__':
     with SyncCrazyflie(URI, cf=cf) as scf:
         cf.platform.send_arming_request(True)
         filelogger=setup_logger()
-        set_initial_params(scf.cf, 50.0, 150.0, 50.0, 150.0, 0.2, 25.0)
         keep_flying = True
         time.sleep(3)
         unlock_drone(scf.cf)
         apply_mlp(scf.cf)
         apply_kf(scf.cf)
+        set_initial_params(scf.cf, 50.0, 120.0, 50.0, 120.0, 0.2, 25.0)
         # exploration_mode(scf.cf)
         # exploration_mode_gpis(scf.cf)
         print("start flying!")

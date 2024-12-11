@@ -1,5 +1,6 @@
 #ifndef UTLZ_H
 #define UTLZ_H
+#include "GPIS.h"
 
 typedef struct {
     float x, y;      // 点的坐标
@@ -28,4 +29,14 @@ float calculate_rotation_time(float p_x, float p_y, float max_x, float max_y, fl
 // 对轮廓点应用惩罚
 void apply_penalty(Point *contour_points, int num_contour_points, float *y_stds, float *significant_points, int num_significant_points, float c);
 
+void compute_curvature_kernel(const GaussianProcess *gp,
+    Point *contour_points, int contour_count,
+    float *curvatures
+);
+
+void find_high_curvature_clusters_using_curvature(
+    Point *contour_points, int num_points, 
+    float *curvatures, float curvature_threshold, 
+    float *significant_points, int *num_significant_points
+);
 #endif // UTLZ_H
