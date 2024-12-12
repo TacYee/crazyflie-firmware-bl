@@ -80,6 +80,10 @@ static float MIN_THRESHOLD1 = 20.0f;
 static float MAX_THRESHOLD1 = 100.0f;
 static float MIN_THRESHOLD2 = 20.0f;
 static float MAX_THRESHOLD2 = 100.0f;
+static float scale_1 = 1.0f;
+static float scale_2 = 1.0f;
+static float offset_1 = 0.0f;
+static float offset_2 = 0.0f;
 static float maxSpeed = 0.2f;
 static float maxTurnRate = 25.0f;
 
@@ -127,6 +131,7 @@ void appMain()
 
       if (!isFSMInitialized) {
             FSMInit(MIN_THRESHOLD1, MAX_THRESHOLD1, MIN_THRESHOLD2, MAX_THRESHOLD2, maxSpeed, maxTurnRate, stateInnerLoop);
+            PostCalInit(scale_1, scale_2, offset_1, offset_2);
             isFSMInitialized = true; // 设置标志变量为 true，防止重复初始化
         }
 
@@ -231,6 +236,10 @@ PARAM_ADD(PARAM_FLOAT, MIN_THRESHOLD1, &MIN_THRESHOLD1)
 PARAM_ADD(PARAM_FLOAT, MAX_THRESHOLD1, &MAX_THRESHOLD1)
 PARAM_ADD(PARAM_FLOAT, MIN_THRESHOLD2, &MIN_THRESHOLD2)
 PARAM_ADD(PARAM_FLOAT, MAX_THRESHOLD2, &MAX_THRESHOLD2)
+PARAM_ADD(PARAM_FLOAT, scale_1, &scale_1)
+PARAM_ADD(PARAM_FLOAT, scale_2, &scale_2)
+PARAM_ADD(PARAM_FLOAT, offset_1, &offset_1)
+PARAM_ADD(PARAM_FLOAT, offset_2, &offset_2)
 PARAM_ADD(PARAM_FLOAT, maxSpeed, &maxSpeed)
 PARAM_ADD(PARAM_FLOAT, maxTurnRate, &maxTurnRate)
 PARAM_GROUP_STOP(app)

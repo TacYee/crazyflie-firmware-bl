@@ -60,6 +60,8 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
 void FSMInit(float MIN_THRESHOLD1_input, float MAX_THRESHOLD1_input, 
              float MIN_THRESHOLD2_input, float MAX_THRESHOLD2_input, 
              float maxSpeed_input, float maxTurnRate_input, StateCF initState);
+void PostCalInit(float scale_1, float scale_2, 
+             float offset_1, float offset_2);
 
 void ProcessWhiskerInit(StateWhisker *statewhisker);
 #endif /* SRC_CF_WHISKERS_ONBOARD_H_ */

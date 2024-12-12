@@ -574,7 +574,7 @@ class KalmanFilterFLAT3_seperate:
         预测步骤：预测下一个状态和协方差矩阵。
         """
         #无人机与墙壁法线夹角的预测值弧度
-        self.relative_rad = np.arctan((self.x_pre1 - self.x_pre2) / 40)
+        self.relative_rad = 0
 
         #墙壁在world frame下的角度预测值弧度
         self.wall_rad = np.deg2rad(self.Θ_last) - self.relative_rad 
@@ -588,8 +588,8 @@ class KalmanFilterFLAT3_seperate:
         self.distance_towall1 = (self.relative_distance * np.sin(self.wall_rad - np.arctan((p_y-self.p_y_last)/(p_x-self.p_x_last))))/np.cos(self.relative_rad) + self.x_pre1
         self.distance_towall2 = (self.relative_distance * np.sin(self.wall_rad - np.arctan((p_y-self.p_y_last)/(p_x-self.p_x_last))))/np.cos(self.relative_rad) + self.x_pre2
         # reorentation后的预测状态：
-        self.x_pre_minus1 = (self.distance_towall1 * np.cos(self.relative_rad)) / np.cos(self.new_relative_rad)
-        self.x_pre_minus2 = (self.distance_towall2 * np.cos(self.relative_rad)) / np.cos(self.new_relative_rad)
+        self.x_pre_minus1 = (self.distance_towall1 * np.cos(self.relative_rad)) 
+        self.x_pre_minus2 = (self.distance_towall2 * np.cos(self.relative_rad))
         # 预测协方差矩阵：P_k^- = P_k-1 + 
         self.P_minus1 = self.lambda_fading * self.P1 + self.Q1
         self.P_minus2 = self.lambda_fading * self.P2 + self.Q2

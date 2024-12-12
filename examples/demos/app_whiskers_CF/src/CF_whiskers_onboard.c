@@ -51,6 +51,10 @@ static KalmanFilterWhisker kf;
 static float process_noise = 0.01;
 static float measurement_noise = 1;
 static float initial_covariance = 50;
+static float scale_1 = 1.0f;
+static float scale_2 = 1.0f;
+static float offset_1 = 0.0f;
+static float offset_2 = 0.0f;
 
 static StateCF stateCF = hover;
 float timeNow = 0.0f;
@@ -207,6 +211,17 @@ void FSMInit(float MIN_THRESHOLD1_input, float MAX_THRESHOLD1_input,
   stateCF = initState;
   CF_count = 150;
   DEBUG_PRINT("Initialize FSM parameters.\n");
+}
+
+void PostCalInit(float scale_1_input, float scale_2_input, 
+             float offset_1_input, float offset_2_input)
+{
+  scale_1 = scale_1_input;
+  scale_2 = scale_2_input;
+  offset_1 = offset_1_input;
+  offset_2= offset_2_input;
+
+  DEBUG_PRINT("Initialize Post calibrated parameters.\n");
 }
 
 static StateCF transition(StateCF newState)
@@ -373,14 +388,17 @@ StateCF MLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_1,
 
         if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
         {   
-            dis_net(statewhisker);
+            dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
+            DEBUG_PRINT("%f\n", (double)scale_1);
+            DEBUG_PRINT("Obstacles encountered. Starting contour tracking.\n");
+            
         }else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
-            dis_net(statewhisker);
+            dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
             statewhisker->mlpoutput_2 = 0.0f;
         }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
         {
-            dis_net(statewhisker);
+            dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
             statewhisker->mlpoutput_1 = 0.0f; 
         }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
@@ -650,7 +668,7 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
         {        
             if (!is_KF_initialized)
             {
-                dis_net(statewhisker);
+                dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
                 KF_init(&kf, statewhisker->mlpoutput_1, statewhisker->mlpoutput_2, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
                 is_KF_initialized = 1; // 标记已初始化
                 statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
@@ -658,13 +676,13 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
             }
             else
             {
-                dis_net(statewhisker);
+                dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
                 KF_data_receive(statewhisker, &kf);
             }
 
         }else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
-            dis_net(statewhisker);
+            dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
             statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
             statewhisker->KFoutput_2 = 0.0f;
             statewhisker->mlpoutput_2 = 0.0f;
@@ -672,7 +690,7 @@ StateCF KFMLPFSM(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisker1_
             DEBUG_PRINT("Whisker 2 loses contact. Reset KF.\n");
         }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
         {
-            dis_net(statewhisker);
+            dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
             statewhisker->KFoutput_1 = 0.0f;
             statewhisker->mlpoutput_1 = 0.0f;
             statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
@@ -812,7 +830,7 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
         {        
             if (!is_KF_initialized)
             {
-                dis_net(statewhisker);
+                dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
                 KF_init(&kf, statewhisker->mlpoutput_1, statewhisker->mlpoutput_2, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
                 is_KF_initialized = 1; // 标记已初始化
                 statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
@@ -820,12 +838,12 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
             }
             else
             {
-                dis_net(statewhisker);
+                dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
                 KF_data_receive(statewhisker, &kf);
             }
         }else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
-            dis_net(statewhisker);
+            dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
             statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
             statewhisker->KFoutput_2 = 0.0f;
             statewhisker->mlpoutput_2 = 0.0f;
@@ -833,7 +851,7 @@ StateCF KFMLPFSM_EXP(float *cmdVelX, float *cmdVelY, float *cmdAngW, float whisk
             DEBUG_PRINT("Whisker 2 loses contact. Reset KF.\n");
         }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
         {
-            dis_net(statewhisker);
+            dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
             statewhisker->KFoutput_1 = 0.0f;
             statewhisker->mlpoutput_1 = 0.0f;
             statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;
@@ -1004,7 +1022,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
         {        
             if (!is_KF_initialized)
             {
-                dis_net(statewhisker);
+                dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
                 KF_init(&kf, statewhisker->mlpoutput_1, statewhisker->mlpoutput_2, (float[]){statewhisker->p_x, statewhisker->p_y}, statewhisker->yaw, initial_covariance, process_noise, measurement_noise);//here need a interface
                 is_KF_initialized = 1; // 标记已初始化
                 statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
@@ -1024,7 +1042,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             }
             else
             {
-                dis_net(statewhisker);
+                dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
                 KF_data_receive(statewhisker, &kf);
                 if (current_train_index < MAX_TRAIN_SIZE && CF_count % 40 == 0) 
                 {
@@ -1042,7 +1060,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
 
         }else if (statewhisker->whisker1_1 > CF_THRESHOLD1 && statewhisker->whisker2_1 < CF_THRESHOLD2)
         {
-            dis_net(statewhisker);
+            dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
             statewhisker->KFoutput_1 = statewhisker->mlpoutput_1;
             statewhisker->KFoutput_2 = 0.0f;
             statewhisker->mlpoutput_2 = 0.0f;
@@ -1062,7 +1080,7 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                 }
         }else if (statewhisker->whisker1_1 < CF_THRESHOLD1 && statewhisker->whisker2_1 > CF_THRESHOLD2)
         {
-            dis_net(statewhisker);
+            dis_net(statewhisker, scale_1, scale_2, offset_1, offset_2);
             statewhisker->KFoutput_1 = 0.0f;
             statewhisker->mlpoutput_1 = 0.0f;
             statewhisker->KFoutput_2 = statewhisker->mlpoutput_2;

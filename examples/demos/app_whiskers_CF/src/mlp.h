@@ -12,6 +12,6 @@
 #include <arm_math.h> // 确保包含 CMSIS-DSP 头文件
 
 // dis_net 函数声明
-void dis_net(StateWhisker *statewhisker);
+void dis_net(StateWhisker *statewhisker, float scale_1, float scale_2, float offset_1, float offset_2);
 
 #endif /* SRC_MLP_H_ */

@@ -361,33 +361,41 @@ void mlp_inference2(const float* input_data, float* output)
     *output += b4_1;
 }
 
+float post_calibration(float input, float scale, float offset) 
+{
+    return scale * input + offset;
+}
+
 void process_whisker1(const float* input_data,
-                     float* output) 
+                     float* output, float scale, float offset) 
 {
     float normalized_data[INPUT_SIZE];
     const float mean_1[3] = {38.54624973, 0.55249265, -23.19183939};
     const float std_1[3] = {14.80891291, 2.27739256, 10.36294479};
     normalization(input_data, mean_1, std_1, normalized_data);
     mlp_inference1(normalized_data, output);
+    *output = post_calibration(*output, scale, offset);
 }
 
 void process_whisker2(const float* input_data,
-                     float* output) 
+                     float* output, float scale, float offset) 
 {
     float normalized_data[INPUT_SIZE];
     const float mean_2[3] = {55.96984826, -3.6516308, -1.02449511};
     const float std_2[3] = {19.93779949, 5.61960992, 11.38879418};
     normalization(input_data, mean_2, std_2, normalized_data);
     mlp_inference2(normalized_data, output);
+
+    *output = post_calibration(*output, scale, offset);
 }
 
 
-void dis_net(StateWhisker *statewhisker) 
+void dis_net(StateWhisker *statewhisker, float scale_1, float scale_2, float offset_1, float offset_2) 
 {
     float input_data_1[INPUT_SIZE] = {statewhisker->whisker1_1, statewhisker->whisker1_2, statewhisker->whisker1_3};
     float input_data_2[INPUT_SIZE] = {statewhisker->whisker2_1, statewhisker->whisker2_2, statewhisker->whisker2_3};
 
-    process_whisker1(input_data_1, &statewhisker->mlpoutput_1);
+    process_whisker1(input_data_1, &statewhisker->mlpoutput_1, scale_1, offset_1);
     
-    process_whisker2(input_data_2, &statewhisker->mlpoutput_2);
+    process_whisker2(input_data_2, &statewhisker->mlpoutput_2, scale_2, offset_2);
 }
