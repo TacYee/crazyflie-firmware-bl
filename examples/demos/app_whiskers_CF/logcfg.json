@@ -28,11 +28,9 @@
         "period": 20,
         "variables": ["stateEstimate.x",
                       "stateEstimate.y",
-                      "stateEstimate.z",
                       "stateEstimate.vx",
-                      "stateEstimate.vy",
-                      "stateEstimate.vz"],
-        "headers": ["stateX", "stateY", "stateZ", "stateVX", "stateVY", "stateVZ"]
+                      "stateEstimate.vy"],
+        "headers": ["stateX", "stateY", "stateVX", "stateVY"]
     },
 
     "whisker1":{
@@ -148,6 +146,16 @@
         "headers": ["kalX", "kalY", "kalZ", "kalPX", "kalPY", "kalPZ"]
     },
 
+    "acc":{
+        "name": "acc",
+        "type": "CF",
+        "period": 20,
+        "variables": ["acc.x",
+                      "acc.y",
+                      "acc.z"],
+        "headers": ["accx", "accy", "accz"]
+    },
+
 
     "otpos":{
         "name": "otpos",
@@ -164,8 +172,8 @@
         "name": "mocap",
         "type": "EXT",
         "period": 20,
-        "variables": ["pos_x", "pos_y", "pos_z", "yaw"],
-        "headers": ["Position X", "Position Y", "Position Z", "yaw"]
+        "variables": ["pos_x", "pos_y", "yaw"],
+        "headers": ["Position X", "Position Y", "yaw"]
     }
 }
 

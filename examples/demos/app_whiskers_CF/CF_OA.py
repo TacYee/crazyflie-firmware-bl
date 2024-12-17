@@ -59,7 +59,6 @@ class MocapWrapper(Thread):
                         self.on_pose({
                             "pos_x": pos[0],
                             "pos_y": pos[1],
-                            "pos_z": pos[2],
                             "yaw": yaw
                         })
 
@@ -173,6 +172,7 @@ def setup_logger():
     # flogger.enableConfig("StateOuterLoop")
     flogger.enableConfig("orientation")
     flogger.enableConfig("laser")
+    flogger.enableConfig("acc")
     flogger.enableConfig("KFOUTPUT")
 
     flogger.enableConfig("mocap")
@@ -209,8 +209,8 @@ if __name__ == '__main__':
         cf.platform.send_arming_request(True)
         filelogger=setup_logger()
         keep_flying = True
-        set_initial_params(scf.cf, 30.0, 80.0, 30.0, 80.0, 0.2, 25.0)
-        post_cal_params(scf.cf, 1.0492, 1.6958, -53.2529, -119.2660)
+        set_initial_params(scf.cf, 45.0, 100.0, 45.0, 100.0, 0.2, 25.0)
+        post_cal_params(scf.cf, 1.4556, 1.5142, -79.2648, -94.5413)
         time.sleep(3)
         apply_mlp(scf.cf)
         apply_kf(scf.cf)
