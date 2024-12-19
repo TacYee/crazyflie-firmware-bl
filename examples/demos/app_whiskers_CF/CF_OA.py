@@ -58,7 +58,7 @@ class MocapWrapper(Thread):
                         # 通过回调传递 mocap 数据
                         self.on_pose({
                             "pos_x": pos[0],
-                            "pos_y": pos[1],
+                            "pos_y": pos[2],
                             "yaw": yaw
                         })
 
@@ -209,8 +209,8 @@ if __name__ == '__main__':
         cf.platform.send_arming_request(True)
         filelogger=setup_logger()
         keep_flying = True
-        set_initial_params(scf.cf, 45.0, 100.0, 45.0, 100.0, 0.2, 25.0)
-        post_cal_params(scf.cf, 1.4556, 1.5142, -79.2648, -94.5413)
+        set_initial_params(scf.cf, 50.0, 100.0, 50.0, 100.0, 0.2, 25.0)
+        post_cal_params(scf.cf, 0.7820,  0.8846, -0.8114, -12.9479)
         time.sleep(3)
         apply_mlp(scf.cf)
         apply_kf(scf.cf)

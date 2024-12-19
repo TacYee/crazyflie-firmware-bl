@@ -28,7 +28,7 @@ void KF_init(KalmanFilterWhisker* kf, float initial_state1, float initial_state2
 // 预测步骤
 void KF_predict(KalmanFilterWhisker* kf, float position[], float yaw) 
 {
-    float relative_rad = 0.0f;
+    float relative_rad = 0;
     float wall_rad = (kf->theta_last * (M_PI_F / 180.0f)) - relative_rad;
     float p_x = position[0] * 1000;
     float p_y = - (position[1] * 1000);
