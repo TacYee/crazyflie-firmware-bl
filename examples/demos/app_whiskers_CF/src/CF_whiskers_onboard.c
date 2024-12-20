@@ -1192,16 +1192,16 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
                     }
                 }
             }
-            LineSegment lineSegments[grid_size*grid_size / 4];       // 静态分配的线段数组
-            Point orderedContourPoints[grid_size*grid_size / 4]; 
+            LineSegment lineSegments[grid_size*grid_size / 2];       // 静态分配的线段数组
+            Point orderedContourPoints[grid_size*grid_size / 2]; 
             marchingSquares(grid_size, y_preds, y_stds, x_min, x_step, y_min, y_step, lineSegments);
             connectContourSegments(lineSegments, orderedContourPoints);
             // 找到高曲率点
-            float significant_points[grid_size * grid_size / 2];
+            float significant_points[grid_size * grid_size / 4];
             int num_significant_points;
-            float curvatures[grid_size * grid_size/4];
+            float curvatures[grid_size * grid_size/2];
             compute_curvature_kernel(&gp_model, orderedContourPoints, orderedPointCount, curvatures);
-            find_high_curvature_clusters_using_curvature(orderedContourPoints, orderedPointCount, curvatures, 0.7,  significant_points, &num_significant_points);
+            find_high_curvature_clusters_using_curvature(orderedContourPoints, orderedPointCount, curvatures, 0.5,  significant_points, &num_significant_points);
             // 对轮廓点应用惩罚
             apply_penalty(orderedContourPoints, orderedPointCount, y_stds, significant_points, num_significant_points, 0.4f);
             

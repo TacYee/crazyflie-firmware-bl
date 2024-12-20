@@ -98,7 +98,6 @@ def post_cal_params(cf, scale_1, scale_2, offset_1, offset_2):
     cf.param.set_value('app.offset_1', str(offset_1))
     cf.param.set_value('app.offset_2', str(offset_2))
 
-
 def get_filename():
     fileroot = args["fileroot"] 
         
@@ -210,7 +209,7 @@ if __name__ == '__main__':
         filelogger=setup_logger()
         keep_flying = True
         set_initial_params(scf.cf, 50.0, 100.0, 50.0, 100.0, 0.2, 25.0)
-        post_cal_params(scf.cf, 0.7820,  0.8846, -0.8114, -12.9479)
+        post_cal_params(scf.cf, 1.0776,  1.3013, -62.2477, -62.2250)
         time.sleep(3)
         apply_mlp(scf.cf)
         apply_kf(scf.cf)

@@ -467,7 +467,7 @@ void find_high_curvature_clusters_using_curvature(
     *num_significant_points = 0; // 初始化显著点数量
 
     for (int i = 0; i < num_points; ++i) {
-        if (curvatures[i] > curvature_threshold) {
+        if (curvatures[i] < curvature_threshold) {
             // 当前点的曲率超过阈值，添加到当前簇
             if (cluster_size < 25) { // 确保不会超出数组界限
                 current_cluster[cluster_size * 2] = contour_points[i].x;
