@@ -1013,7 +1013,8 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             statewhisker->KFoutput_1 = 0.0f;
             statewhisker->KFoutput_2 = 0.0f;
             statewhisker->mlpoutput_1 = 0.0f;
-            statewhisker->mlpoutput_1 = 0.0f;
+            statewhisker->mlpoutput_2 = 0.0f;
+            is_KF_initialized = 0;
             stateCF = transition(backward);
             DEBUG_PRINT("CF finished. Flyingbackward.\n");
             backward_count = 150;
@@ -1232,9 +1233,17 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             double time_taken = (double)(time_end - time_start);
             DEBUG_PRINT("run time: %f s\n", time_taken);
         }
-        statewhisker->count += 14;
         stateCF = transition(rotate); 
         firstRunPreprocess = true;
+        for (int i = 0; i < 6; i++) 
+            {
+                statewhisker->sum_x[i] = 0.0f;
+                statewhisker->sum_y[i] = 0.0f;
+                statewhisker->sum_x_squared[i] = 0.0f;
+                statewhisker->sum_xy[i] = 0.0f;
+                statewhisker->zi[i][0] = 0.0f;  // Initialize filter state
+                statewhisker->zi[i][1] = 0.0f;
+            }
         statewhisker->count = 0;
         statewhisker->preprocesscount = 0;
 
