@@ -208,7 +208,7 @@ if __name__ == '__main__':
         filelogger=setup_logger()
         keep_flying = True
         set_initial_params(scf.cf, 40.0, 100.0, 40.0, 100.0, 0.2, 25.0)
-        post_cal_params(scf.cf, 1.00, 1.00, -40.1368, -26.5272)
+        post_cal_params(scf.cf, 1.00, 1.00, -35.6700, -16.0642)
         time.sleep(3)
         unlock_drone(scf.cf)
         apply_mlp(scf.cf)

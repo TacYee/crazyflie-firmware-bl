@@ -1201,9 +1201,9 @@ StateCF KFMLPFSM_EXP_GPIS(float *cmdVelX, float *cmdVelY, float *cmdAngW, float 
             int num_significant_points;
             float curvatures[grid_size * grid_size/2];
             compute_curvature_kernel(&gp_model, orderedContourPoints, orderedPointCount, curvatures);
-            find_high_curvature_clusters_using_curvature(orderedContourPoints, orderedPointCount, curvatures, 0.5,  significant_points, &num_significant_points);
+            find_high_curvature_clusters_using_curvature(orderedContourPoints, orderedPointCount, curvatures, -0.7f,  significant_points, &num_significant_points);
             // 对轮廓点应用惩罚
-            apply_penalty(orderedContourPoints, orderedPointCount, y_stds, significant_points, num_significant_points, 0.4f);
+            apply_penalty(orderedContourPoints, orderedPointCount, y_stds, significant_points, num_significant_points, 0.3f);
             
             // 寻找最大 y_std 点
             float max_y_std = -FLT_MAX; // 初始化为最小值
