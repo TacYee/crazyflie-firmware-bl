@@ -466,6 +466,11 @@ void find_high_curvature_clusters_using_curvature(
 
     *num_significant_points = 0; // 初始化显著点数量
 
+    float first_centroid[2] = {0}; // 记录第一个簇的质心
+    float last_centroid[2] = {0};  // 记录最后一个簇的质心
+    int first_centroid_calculated = 0; // 是否已计算第一个质心
+    int last_centroid_calculated = 0;  // 是否已计算最后一个质心
+
     for (int i = 0; i < num_points; ++i) {
         if (curvatures[i] < curvature_threshold) {
             // 当前点的曲率超过阈值，添加到当前簇
@@ -480,7 +485,19 @@ void find_high_curvature_clusters_using_curvature(
                 float centroid[2];
                 compute_centroid(current_cluster, cluster_size, centroid);
 
-                // 将簇的质心保存为显著曲率点
+                // 如果是第一个簇，记录它的质心
+                if (!first_centroid_calculated) {
+                    first_centroid[0] = centroid[0];
+                    first_centroid[1] = centroid[1];
+                    first_centroid_calculated = 1;
+                }
+
+                // 更新最后一个簇的质心
+                last_centroid[0] = centroid[0];
+                last_centroid[1] = centroid[1];
+                last_centroid_calculated = 1;
+
+                // 保存质心为显著曲率点
                 significant_points[(*num_significant_points) * 2] = centroid[0];
                 significant_points[(*num_significant_points) * 2 + 1] = centroid[1];
                 (*num_significant_points)++;
@@ -495,8 +512,33 @@ void find_high_curvature_clusters_using_curvature(
         float centroid[2];
         compute_centroid(current_cluster, cluster_size, centroid);
 
+        if (!first_centroid_calculated) {
+            first_centroid[0] = centroid[0];
+            first_centroid[1] = centroid[1];
+            first_centroid_calculated = 1;
+        }
+
+        last_centroid[0] = centroid[0];
+        last_centroid[1] = centroid[1];
+        last_centroid_calculated = 1;
+
         significant_points[(*num_significant_points) * 2] = centroid[0];
         significant_points[(*num_significant_points) * 2 + 1] = centroid[1];
+        (*num_significant_points)++;
+    }
+
+    // 检查是否需要合并第一个簇和最后一个簇
+    if (first_centroid_calculated && last_centroid_calculated &&
+        curvatures[0] < curvature_threshold && curvatures[num_points - 1] < curvature_threshold) {
+        
+        // 计算首尾质心的质心
+        float merged_centroid[2];
+        merged_centroid[0] = (first_centroid[0] + last_centroid[0]) / 2.0f;
+        merged_centroid[1] = (first_centroid[1] + last_centroid[1]) / 2.0f;
+
+        // 将首尾质心的质心作为一个显著点保存
+        significant_points[(*num_significant_points) * 2] = merged_centroid[0];
+        significant_points[(*num_significant_points) * 2 + 1] = merged_centroid[1];
         (*num_significant_points)++;
     }
 }

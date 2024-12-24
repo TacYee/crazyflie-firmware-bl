@@ -76,7 +76,7 @@ void gp_predict(const GaussianProcess *gp, const float *X_test, int test_size, f
     {
         for (int j = 0; j < gp->train_size; ++j) 
         {
-            K_trans.pData[i * gp->train_size + j] = gp->kernel(&X_test[i * 2], &gp->X_train[j * 2], 2, 0.8f);
+            K_trans.pData[i * gp->train_size + j] = gp->kernel(&X_test[i * 2], &gp->X_train[j * 2], 2, 1.0f);
         }
     }
 
@@ -103,7 +103,7 @@ void gp_predict(const GaussianProcess *gp, const float *X_test, int test_size, f
     {
         for (int j = 0; j < test_size; ++j) 
         {
-            K_test.pData[i * test_size + j] = gp->kernel(&X_test[i * 2], &X_test[j * 2], 2, 0.8f);
+            K_test.pData[i * test_size + j] = gp->kernel(&X_test[i * 2], &X_test[j * 2], 2, 1.0f);
         }
     }
 
